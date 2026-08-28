@@ -30,6 +30,7 @@ body {
 .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
 .brand-text strong { font-size: 18px; color: var(--negro); }
 .brand-text span { font-size: 12px; color: #666; }
+.app-version { color: #aaa; }
 
 .ghost-btn {
   background: transparent;

@@ -425,6 +425,9 @@ async function initSettings() {
   const btn = document.getElementById('btn-settings');
 
   const settings = await window.powerlit.getSettings();
+  if (settings.version) {
+    document.getElementById('app-version').textContent = 'v' + settings.version;
+  }
   if (settings.savePath) {
     folderLabel.textContent = settings.savePath;
     folderLabel.title = settings.savePath + '\n(dentro se organiza solo por año y mes)';
@@ -572,6 +575,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       CLIENTES = await window.powerlit.eliminarCliente(id);
       renderListaClientes();
     }
+  });
+
+  document.getElementById('btn-buscar-actualizaciones').addEventListener('click', () => {
+    window.powerlit.buscarActualizaciones();
   });
 
   addRow();

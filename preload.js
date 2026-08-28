@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('powerlit', {
   listarClientes: () => ipcRenderer.invoke('listar-clientes'),
   guardarCliente: (cliente) => ipcRenderer.invoke('guardar-cliente', cliente),
   eliminarCliente: (id) => ipcRenderer.invoke('eliminar-cliente', id),
-  confirmar: (mensaje) => ipcRenderer.invoke('confirmar', mensaje)
+  confirmar: (mensaje) => ipcRenderer.invoke('confirmar', mensaje),
+  buscarActualizaciones: () => ipcRenderer.invoke('buscar-actualizaciones')
 });

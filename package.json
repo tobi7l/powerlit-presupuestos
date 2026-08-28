@@ -1,6 +1,6 @@
 {
   "name": "powerlit-presupuestos",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "Generador de presupuestos Powerlit",
   "main": "main.js",
   "author": "Powerlit",
@@ -9,6 +9,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
+    "release": "electron-builder --win --publish always",
     "make-icon": "node build/make-icon.js"
   },
   "devDependencies": {
@@ -46,9 +47,16 @@
     ],
     "directories": {
       "output": "dist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "tobi7l",
+      "repo": "powerlit-presupuestos",
+      "releaseType": "release"
     }
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "pdf-parse": "^2.4.5"
   }
 }

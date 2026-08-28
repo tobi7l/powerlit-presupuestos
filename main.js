@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { PDFParse } = require('pdf-parse');
+const { autoUpdater } = require('electron-updater');
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const CLIENTES_PATH_LOCAL = path.join(app.getPath('userData'), 'clientes.json');
@@ -132,10 +133,69 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+  if (app.isPackaged) {
+    // Chequeo silencioso al arrancar. En modo desarrollo (npm start) no hay
+    // app-update.yml empaquetado, así que ni se intenta.
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(err => console.error('checkForUpdates:', err.message));
+    }, 3000);
+  }
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// --- Auto-actualización (electron-updater, publica en GitHub Releases) ---
+autoUpdater.autoDownload = true;
+let chequeoManualEnCurso = false;
+
+autoUpdater.on('update-not-available', () => {
+  if (chequeoManualEnCurso) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      message: 'Ya tenés instalada la última versión de Powerlit Presupuestos.'
+    });
+  }
+  chequeoManualEnCurso = false;
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Error buscando actualizaciones:', err.message);
+  if (chequeoManualEnCurso) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      message: 'No se pudo buscar actualizaciones.',
+      detail: err.message
+    });
+  }
+  chequeoManualEnCurso = false;
+});
+
+autoUpdater.on('update-downloaded', async (info) => {
+  chequeoManualEnCurso = false;
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    buttons: ['Más tarde', 'Reiniciar ahora'],
+    defaultId: 1,
+    cancelId: 0,
+    title: 'Actualización lista',
+    message: `Hay una versión nueva de Powerlit Presupuestos (${info.version}) lista para instalar.`,
+    detail: 'Si elegís "Más tarde", se instala sola la próxima vez que cierres la app.'
+  });
+  if (response === 1) autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('buscar-actualizaciones', () => {
+  if (!app.isPackaged) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      message: 'La búsqueda de actualizaciones solo funciona en la app instalada, no en modo desarrollo.'
+    });
+    return;
+  }
+  chequeoManualEnCurso = true;
+  autoUpdater.checkForUpdates().catch(() => { /* el evento 'error' ya lo maneja */ });
 });
 
 // --- IPC: ajustes de carpeta de guardado ---
@@ -146,6 +206,7 @@ ipcMain.handle('get-settings', () => {
   }
   settings.driveDetectado = guessDriveFolder() !== null;
   settings.clientesEnDrive = settings.driveDetectado; // los clientes se guardan en Drive cuando hay Drive detectado
+  settings.version = app.getVersion();
   return settings;
 });
 
