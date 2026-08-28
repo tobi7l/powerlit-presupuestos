@@ -107,15 +107,51 @@ reemplazarlo, pisar ese archivo (fondo transparente, logo centrado, sin
 márgenes extra) y correr `npm run make-icon` para regenerar el ícono de la
 app a partir del logo nuevo, y después `npm run build`.
 
-## Desarrollo / cómo generar el instalador
+## Auto-actualización
 
-Requisitos: Node.js instalado.
+La app se fija sola, cada vez que arranca, si hay una versión más nueva publicada en
+[GitHub Releases](https://github.com/tobi7l/powerlit-presupuestos/releases). Si la hay,
+la descarga en segundo plano (solo la diferencia entre versiones, no el instalador
+entero) y avisa con un cartel para reiniciar e instalarla — o se instala sola la
+próxima vez que se cierre la app si se elige "Más tarde". También hay un botón
+"🔄 Buscar actualización" arriba a la derecha para chequear al toque, sin esperar a
+reabrir la app. La versión instalada se ve chiquita al lado de "Generador de
+presupuestos".
+
+Esto significa que, en general, **ya no hace falta pasar el instalador a mano** por
+Drive/USB para actualizar — alcanza con publicar la versión nueva (ver abajo) y cada PC
+la va a encontrar sola. La copia en `Powerlit App/` dentro de Drive queda solo como
+respaldo para instalar por primera vez en una PC nueva.
+
+## Desarrollo / cómo generar el instalador y publicar una actualización
+
+Requisitos: Node.js instalado, y sesión iniciada en GitHub CLI (`gh auth login`) con
+acceso al repo [tobi7l/powerlit-presupuestos](https://github.com/tobi7l/powerlit-presupuestos).
 
 ```
 npm install       # una sola vez
 npm start         # correr la app en modo desarrollo
 npm run make-icon # regenerar build/icon.ico y src/icon.ico si se cambia src/logo.png
-npm run build     # genera el instalador .exe en la carpeta dist/
+npm run build     # genera el instalador .exe en la carpeta dist/, sin publicarlo
 ```
+
+Para publicar una actualización que las apps ya instaladas van a encontrar solas:
+
+1. Subir el número de versión en `package.json` (campo `"version"`).
+2. Publicar:
+   ```
+   export GH_TOKEN="$(gh auth token)"
+   npm run release
+   ```
+3. GitHub crea el release como **borrador** — hay que publicarlo (una sola vez por
+   versión) para que quede visible:
+   ```
+   gh release edit vX.Y.Z --repo tobi7l/powerlit-presupuestos --draft=false
+   ```
+   (reemplazar `vX.Y.Z` por la versión, por ejemplo `v1.1.2`).
+
+Con eso, cualquier PC con una versión anterior instalada la va a detectar y ofrecer
+instalar sola la próxima vez que abra la app (o al toque si tocan "🔄 Buscar
+actualización").
 
 El instalador queda en `dist/Powerlit Presupuestos Setup <version>.exe`.
