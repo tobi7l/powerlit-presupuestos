@@ -123,6 +123,9 @@ input:focus, select:focus { outline: none; border-color: var(--naranja); }
 }
 .primary-btn:hover { background: var(--naranja-oscuro); }
 .primary-btn.full { width: 100%; margin-top: 14px; padding: 12px; font-size: 14px; }
+.ghost-btn.full { width: 100%; padding: 10px; font-size: 13.5px; }
+
+.post-generar-acciones { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 
 table { width: 100%; border-collapse: collapse; }
 thead th {

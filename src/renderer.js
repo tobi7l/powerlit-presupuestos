@@ -3,6 +3,7 @@ let CLIENTES = [];
 let LOGO_DATA_URL = '';
 let rowCounter = 0;
 let dropdownAbierto = null; // referencia al <div class="detalle-dropdown"> abierto actualmente
+let ultimoPdfGenerado = null; // ruta del último PDF generado, para el botón "Mostrar PDF"
 
 function fmtMoney(n) {
   return '$ ' + (n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -393,6 +394,9 @@ function nombreArchivo(cliente, fechaVal) {
 
 async function generarPDF() {
   const status = document.getElementById('save-status');
+  const acciones = document.getElementById('post-generar-acciones');
+  acciones.hidden = true;
+
   const filas = filasValidas();
   if (filas.length === 0) {
     status.textContent = 'Agregá al menos un producto antes de generar el PDF.';
@@ -413,6 +417,8 @@ async function generarPDF() {
   if (res.ok) {
     status.textContent = `Guardado en: ${res.fullPath}`;
     status.className = 'save-status';
+    ultimoPdfGenerado = res.fullPath;
+    acciones.hidden = false;
   } else {
     status.textContent = 'Error al guardar: ' + res.error;
     status.className = 'save-status error';
@@ -519,6 +525,8 @@ async function limpiarTodo() {
   const status = document.getElementById('save-status');
   status.textContent = '';
   status.className = 'save-status';
+  document.getElementById('post-generar-acciones').hidden = true;
+  ultimoPdfGenerado = null;
 }
 
 function blobToDataURL(blob) {
@@ -542,6 +550,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-add-row').addEventListener('click', addRow);
   document.querySelectorAll('.in-descuento').forEach(sel => sel.addEventListener('change', recalcTotals));
   document.getElementById('btn-generar').addEventListener('click', generarPDF);
+  document.getElementById('btn-ver-pdf').addEventListener('click', () => {
+    if (ultimoPdfGenerado) window.powerlit.abrirCarpeta(ultimoPdfGenerado);
+  });
+  document.getElementById('btn-limpiar-post').addEventListener('click', limpiarTodo);
 
   document.getElementById('btn-importar').addEventListener('click', abrirModalImportar);
   document.getElementById('btn-importar-cancelar').addEventListener('click', cerrarModalImportar);
