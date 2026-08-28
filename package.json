@@ -1,0 +1,54 @@
+{
+  "name": "powerlit-presupuestos",
+  "version": "1.0.0",
+  "description": "Generador de presupuestos Powerlit",
+  "main": "main.js",
+  "author": "Powerlit",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "make-icon": "node build/make-icon.js"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.4"
+  },
+  "build": {
+    "appId": "com.powerlit.presupuestos",
+    "productName": "Powerlit Presupuestos",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Powerlit Presupuestos"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "!src/_preview_logo.html"
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  }
+}

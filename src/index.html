@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Powerlit — Presupuestos</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="logo.png" alt="Powerlit" class="brand-logo" />
+      <div class="brand-text">
+        <strong>Powerlit</strong>
+        <span>Generador de presupuestos</span>
+      </div>
+    </div>
+    <div class="folder-info">
+      <button id="btn-settings" class="ghost-btn" title="Elegir carpeta de guardado">⚙ Carpeta de guardado</button>
+      <span id="folder-path" class="folder-path"></span>
+      <span id="drive-badge" class="drive-badge"></span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <section class="panel client-panel">
+      <div class="panel-head">
+        <h2>Datos del presupuesto</h2>
+        <div class="panel-head-actions">
+          <button id="btn-clientes" class="ghost-btn">👥 Clientes</button>
+          <button id="btn-limpiar" class="ghost-btn">🗑 Limpiar todo</button>
+        </div>
+      </div>
+      <div class="field-row">
+        <label>Destinatario / Cliente
+          <div class="cliente-cell">
+            <input id="cliente" type="text" placeholder="Ej: Sanitarios FB" autocomplete="off" />
+            <div id="cliente-dropdown" class="detalle-dropdown"></div>
+          </div>
+        </label>
+        <label>Dirección
+          <input id="direccion" type="text" placeholder="Ej: Remedios de Escalada 4747" />
+        </label>
+        <button id="btn-guardar-cliente" type="button" class="ghost-btn btn-guardar-cliente" title="Guardar este cliente con su dirección y descuentos para la próxima vez">💾 Guardar cliente</button>
+      </div>
+      <div class="field-row">
+        <label class="field-narrow">Fecha
+          <input id="fecha" type="date" />
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="field-narrow">Descuento 1
+          <select id="descuento1" class="in-descuento">
+            <option value="0">0%</option>
+            <option value="5">5%</option>
+            <option value="10">10%</option>
+            <option value="15">15%</option>
+            <option value="20">20%</option>
+          </select>
+        </label>
+        <label class="field-narrow">Descuento 2
+          <select id="descuento2" class="in-descuento">
+            <option value="0">0%</option>
+            <option value="5">5%</option>
+            <option value="10">10%</option>
+            <option value="15">15%</option>
+            <option value="20">20%</option>
+          </select>
+        </label>
+        <label class="field-narrow">Descuento 3
+          <select id="descuento3" class="in-descuento">
+            <option value="0">0%</option>
+            <option value="5">5%</option>
+            <option value="10">10%</option>
+            <option value="15">15%</option>
+            <option value="20">20%</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel items-panel">
+      <div class="panel-head">
+        <h2>Productos</h2>
+        <button id="btn-importar" class="ghost-btn">📥 Importar pedido</button>
+      </div>
+      <table id="items-table">
+        <thead>
+          <tr>
+            <th class="col-cant">Cant.</th>
+            <th>Detalle</th>
+            <th class="col-money">Unitario</th>
+            <th class="col-money">Importe</th>
+            <th class="col-del"></th>
+          </tr>
+        </thead>
+        <tbody id="items-body"></tbody>
+        <tfoot>
+          <tr>
+            <td class="col-cant"><button id="btn-add-row" class="add-row-btn" title="Agregar producto">+</button></td>
+            <td colspan="4"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <aside class="panel totals-panel">
+      <h2>Resumen</h2>
+      <div class="ticket">
+        <div class="ticket-row"><span>Subtotal</span><span id="out-subtotal">$ 0,00</span></div>
+        <div class="ticket-row muted"><span>Descuento (<span id="out-desc-pct">0%</span>)</span><span id="out-desc-monto">- $ 0,00</span></div>
+        <div class="ticket-divider"></div>
+        <div class="ticket-row total"><span>TOTAL</span><span id="out-total">$ 0,00</span></div>
+      </div>
+      <button id="btn-generar" class="primary-btn full">Generar y guardar PDF</button>
+      <p id="save-status" class="save-status"></p>
+    </aside>
+
+  </main>
+
+  <div id="modal-importar" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <h2>Importar pedido</h2>
+      <p class="modal-hint">
+        Pegá el mensaje del cliente (WhatsApp) o adjuntá el PDF de su pedido.
+        Todo se interpreta en esta PC, sin internet. Después vas a poder revisar
+        las filas antes de generar el presupuesto.
+      </p>
+      <textarea id="importar-texto" placeholder="Pegá acá el mensaje del cliente…"></textarea>
+      <div class="modal-actions-row">
+        <button id="btn-pegar" class="ghost-btn">📋 Pegar</button>
+        <button id="btn-adjuntar-pdf" class="ghost-btn">📎 Adjuntar PDF…</button>
+        <span id="importar-archivo" class="importar-archivo"></span>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-importar-cancelar" class="ghost-btn">Cancelar</button>
+        <button id="btn-importar-interpretar" class="primary-btn">Interpretar pedido</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-clientes" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <h2>Clientes guardados</h2>
+      <p class="modal-hint">Tocá "Usar" para cargar sus datos en el presupuesto, o guardá uno nuevo desde el formulario con "💾 Guardar cliente".</p>
+      <div id="clientes-lista" class="clientes-lista"></div>
+      <div class="modal-actions">
+        <button id="btn-clientes-cerrar" class="ghost-btn">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="orderParser.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
