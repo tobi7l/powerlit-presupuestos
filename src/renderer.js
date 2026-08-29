@@ -450,7 +450,7 @@ function buildTicketHTML() {
     </table>
     <div class="totales">
       <div><span>Subtotal</span><span>${fmtMoney(subtotal)}</span></div>
-      <div><span>Descuento (${etiqueta})</span><span>- ${fmtMoney(descMonto)}</span></div>
+      ${(!modoMinorista || descMonto > 0) ? `<div><span>Descuento (${etiqueta})</span><span>- ${fmtMoney(descMonto)}</span></div>` : ''}
       <div class="total"><span>TOTAL</span><span>${fmtMoney(total)}</span></div>
     </div>
   </body></html>`;
