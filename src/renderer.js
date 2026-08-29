@@ -531,7 +531,7 @@ function toggleModoMinorista() {
   document.getElementById('btn-clientes').hidden = modoMinorista;
   document.getElementById('btn-guardar-cliente').hidden = modoMinorista;
   document.getElementById('fila-descuentos-mayorista').hidden = modoMinorista;
-  document.getElementById('fila-descuento-minorista').hidden = !modoMinorista;
+  document.getElementById('campo-descuento-minorista').hidden = !modoMinorista;
   document.getElementById('campo-telefono').hidden = !modoMinorista;
 
   document.querySelectorAll('#items-body tr').forEach(updateRow);
