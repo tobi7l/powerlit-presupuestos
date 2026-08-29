@@ -392,9 +392,10 @@ function buildTicketHTML() {
       <td style="text-align:right">${fmtMoney(f.cant * precioDe(f.producto))}</td>
     </tr>`).join('');
 
-  // Leyenda tipo sello (solo minorista, y solo si se eligió una): naranja, transparente,
+  // Leyenda tipo sello (solo minorista, y solo si se eligió una): negra, transparente,
   // en diagonal sobre el presupuesto — igual de estilo al watermark de las libretas
-  // impresas de "MODELO EJEMPLO", pero para marcar si ya se cobró o no.
+  // impresas de "MODELO EJEMPLO", pero para marcar si ya se cobró o no. Negra (no
+  // naranja) para que se lea completa aunque cruce la franja naranja de la tabla.
   const textoMarcaAgua = modoMinorista && estadoPago
     ? (estadoPago === 'pagado' ? 'PAGADO' : 'A PAGAR')
     : null;
@@ -410,7 +411,7 @@ function buildTicketHTML() {
       font-size: 90px;
       font-weight: 900;
       letter-spacing: 4px;
-      color: rgba(225, 105, 14, 0.35);
+      color: rgba(0, 0, 0, 0.2);
       white-space: nowrap;
       z-index: 1000;
     }

@@ -47,8 +47,10 @@ cotice minorista por error, o al revés), mientras el modo minorista está activ
   cliente minorista que no está guardado en la lista — si se completa, sale impreso
   en el PDF junto con el cliente y la dirección.
 - Aparecen los botones "Pagado" y "A pagar" ("Marcar en el PDF"). Tocar uno estampa
-  esa leyenda en el PDF como un sello grande, naranja y transparente en diagonal
-  sobre el presupuesto (igual de estilo a las libretas talonario impresas). Tocar
+  esa leyenda en el PDF como un sello grande, negro y transparente en diagonal
+  sobre el presupuesto (igual de estilo a las libretas talonario impresas — se
+  eligió negro y no naranja para que se lea completa la palabra aunque cruce la
+  franja naranja de la tabla de productos). Tocar
   el mismo botón de nuevo lo apaga. Por defecto no dice nada. Son excluyentes entre
   sí, igual que los descuentos.
 
