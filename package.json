@@ -1,6 +1,6 @@
 {
   "name": "powerlit-presupuestos",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Generador de presupuestos Powerlit",
   "main": "main.js",
   "author": "Powerlit",

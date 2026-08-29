@@ -437,7 +437,7 @@ function buildTicketHTML() {
         <b>PRESUPUESTO</b><br/>
         Remedios de Escalada 4747, San Justo<br/>
         Cel.: 11 3173-7227<br/>
-        powerlit.tanques@hotmail.com
+        contacto@powerlit.com.ar
       </div>
     </div>
     <div class="meta">
