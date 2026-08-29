@@ -21,7 +21,31 @@ Sin fórmulas editables: los precios salen del catálogo interno y se recalculan
    debajo de la simple suma de los tres porcentajes.
 6. Tocar "Generar y guardar PDF". El PDF queda guardado automáticamente en la
    carpeta configurada (botón "⚙ Carpeta de guardado", arriba a la derecha), con
-   el nombre `DD-MM-AA - Cliente.pdf`.
+   el nombre `DD-MM-AA - Cliente.pdf`. Debajo aparecen "📄 Mostrar PDF" (lo abre) y
+   "🗑 Limpiar plantilla" (arranca el próximo presupuesto).
+
+### Modo Minorista
+
+Por defecto la app cotiza a precio **mayorista**. El botón **"🛒 Modo Minorista"**
+(arriba a la derecha) cambia a precio **minorista** — recalcula al toque todas las
+filas que ya estén cargadas, no hace falta volver a elegir los productos.
+
+Para que sea imposible no darse cuenta en qué modo se está (y evitar que alguien
+cotice minorista por error, o al revés), mientras el modo minorista está activo:
+- Aparece un cartel morado bien grande arriba de todo: "⚠ MODO MINORISTA".
+- Todos los colores naranjas de la app (tabla de productos, botones) cambian a morado.
+- El botón queda marcado como activo ("✓ Modo Minorista").
+
+El PDF generado se ve exactamente igual en los dos modos (mismo membrete, misma
+tabla) — la única diferencia son los números de precio. El modo elegido no se
+guarda al cerrar la app: siempre arranca en mayorista, para no dejarlo "trabado"
+en minorista sin querer de una sesión a la otra.
+
+Los dos precios de cada producto viven en `src/catalog.json` (`precio` = mayorista,
+`precioMinorista` = minorista). Los productos que no tienen precio minorista propio
+(Cámara de inspección, Cámara registro de lodos, Base de tanque 2000/3000 lts, Conos)
+usan el mismo precio que el mayorista como resguardo — conviene actualizarlos ahí
+apenas se tenga el precio real.
 
 ### Carpeta de guardado / respaldo en Google Drive
 
@@ -95,9 +119,10 @@ Drive detectado en una PC, la lista queda guardada solo ahí hasta que se detect
 
 ## Actualizar precios o productos
 
-El catálogo vive en `src/catalog.json` (categoría, subcategoría, capacidad, precio).
-Para cambiar un precio, renombrar o agregar un producto nuevo, se edita ese archivo
-y se reinstala la app (ver abajo). El producto "Conos" está cargado con precio $0
+El catálogo vive en `src/catalog.json` (categoría, subcategoría, capacidad, `precio`
+mayorista y `precioMinorista`). Para cambiar un precio, renombrar o agregar un
+producto nuevo, se edita ese archivo y se publica una actualización (ver la sección
+de auto-actualización, más abajo). El producto "Conos" está cargado con precio $0
 como placeholder — conviene actualizarlo ahí apenas se tenga el precio.
 
 ## Cambiar el logo

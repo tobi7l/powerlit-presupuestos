@@ -4,6 +4,11 @@ let LOGO_DATA_URL = '';
 let rowCounter = 0;
 let dropdownAbierto = null; // referencia al <div class="detalle-dropdown"> abierto actualmente
 let ultimoPdfGenerado = null; // ruta del último PDF generado, para el botón "Mostrar PDF"
+let modoMinorista = false; // false = precios mayoristas (por defecto al abrir la app)
+
+function precioDe(producto) {
+  return modoMinorista ? producto.precioMinorista : producto.precio;
+}
 
 function fmtMoney(n) {
   return '$ ' + (n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -275,7 +280,7 @@ function productoDeFila(tr) {
 function updateRow(tr) {
   const cant = parseFloat(tr.querySelector('.in-cant').value) || 0;
   const producto = productoDeFila(tr);
-  const precio = producto ? producto.precio : 0;
+  const precio = producto ? precioDe(producto) : 0;
   const importe = cant * precio;
   tr.querySelector('.out-unitario').textContent = fmtMoney(precio);
   tr.querySelector('.out-importe').textContent = fmtMoney(importe);
@@ -313,7 +318,7 @@ function etiquetaDescuentos(descuentos) {
 
 function recalcTotals() {
   const filas = filasValidas();
-  const subtotal = filas.reduce((acc, f) => acc + f.cant * f.producto.precio, 0);
+  const subtotal = filas.reduce((acc, f) => acc + f.cant * precioDe(f.producto), 0);
   const descuentos = descuentosSeleccionados();
   const { total, descMonto } = aplicarDescuentos(subtotal, descuentos);
 
@@ -331,15 +336,15 @@ function buildTicketHTML() {
   const descuentos = descuentosSeleccionados();
 
   const filas = filasValidas();
-  const subtotal = filas.reduce((acc, f) => acc + f.cant * f.producto.precio, 0);
+  const subtotal = filas.reduce((acc, f) => acc + f.cant * precioDe(f.producto), 0);
   const { total, descMonto } = aplicarDescuentos(subtotal, descuentos);
 
   const filasHTML = filas.map(f => `
     <tr>
       <td style="text-align:center">${f.cant}</td>
       <td>${etiquetaProducto(f.producto)}</td>
-      <td style="text-align:right">${fmtMoney(f.producto.precio)}</td>
-      <td style="text-align:right">${fmtMoney(f.cant * f.producto.precio)}</td>
+      <td style="text-align:right">${fmtMoney(precioDe(f.producto))}</td>
+      <td style="text-align:right">${fmtMoney(f.cant * precioDe(f.producto))}</td>
     </tr>`).join('');
 
   return `
@@ -503,6 +508,22 @@ function interpretarPedidoDelModal() {
   cerrarModalImportar();
 }
 
+// Cambia entre precios mayoristas (por defecto) y minoristas. Recalcula todas las filas
+// ya cargadas y cambia el color de toda la app (ver body.modo-minorista en styles.css)
+// para que sea imposible no darse cuenta en qué modo se está.
+function toggleModoMinorista() {
+  modoMinorista = !modoMinorista;
+
+  document.body.classList.toggle('modo-minorista', modoMinorista);
+  document.getElementById('banner-minorista').hidden = !modoMinorista;
+  const btn = document.getElementById('btn-modo-minorista');
+  btn.classList.toggle('activo', modoMinorista);
+  btn.textContent = modoMinorista ? '✓ Modo Minorista' : '🛒 Modo Minorista';
+
+  document.querySelectorAll('#items-body tr').forEach(updateRow);
+  recalcTotals();
+}
+
 // Vacía el formulario para empezar un presupuesto nuevo. La carpeta de guardado
 // configurada NO se toca, es un ajuste de la app, no parte del presupuesto.
 async function limpiarTodo() {
@@ -592,6 +613,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-buscar-actualizaciones').addEventListener('click', () => {
     window.powerlit.buscarActualizaciones();
   });
+  document.getElementById('btn-modo-minorista').addEventListener('click', toggleModoMinorista);
 
   addRow();
   initSettings();

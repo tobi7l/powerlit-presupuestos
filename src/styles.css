@@ -49,6 +49,41 @@ body {
 .drive-badge.si { color: #1E8E3E; }
 .drive-badge.no { color: #B15C00; }
 
+/* Modo Minorista: cambia el color de acento en toda la app (tablas, botones)
+   pisando estas dos variables, para que se note de un vistazo en qué modo se está. */
+.toggle-minorista-btn {
+  background: transparent;
+  border: 2px solid #7A1FA6;
+  color: #7A1FA6;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.toggle-minorista-btn:hover { background: #7A1FA61A; }
+.toggle-minorista-btn.activo {
+  background: #7A1FA6;
+  color: #fff;
+  box-shadow: 0 0 0 3px #7A1FA640;
+}
+
+.banner-minorista {
+  background: #7A1FA6;
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: .03em;
+  padding: 8px;
+  font-size: 13px;
+}
+.banner-minorista[hidden] { display: none; }
+
+body.modo-minorista {
+  --naranja: #7A1FA6;
+  --naranja-oscuro: #5E1680;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1fr 300px;
