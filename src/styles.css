@@ -9,6 +9,11 @@
 
 * { box-sizing: border-box; }
 
+/* El atributo [hidden] tiene que ganarle siempre a cualquier "display" que ponga
+   una clase (ej. .field-row, .post-generar-acciones) — si no, un elemento "oculto"
+   puede seguir apareciendo. Esta regla evita que ese bug se repita en el futuro. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: 'Segoe UI', Arial, sans-serif;
