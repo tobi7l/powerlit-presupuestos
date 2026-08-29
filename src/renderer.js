@@ -5,6 +5,7 @@ let rowCounter = 0;
 let dropdownAbierto = null; // referencia al <div class="detalle-dropdown"> abierto actualmente
 let ultimoPdfGenerado = null; // ruta del último PDF generado, para el botón "Mostrar PDF"
 let modoMinorista = false; // false = precios mayoristas (por defecto al abrir la app)
+let estadoPago = null; // null | 'pagado' | 'a-pagar' — leyenda del PDF, solo en minorista
 
 function precioDe(producto) {
   return modoMinorista ? producto.precioMinorista : producto.precio;
@@ -391,9 +392,28 @@ function buildTicketHTML() {
       <td style="text-align:right">${fmtMoney(f.cant * precioDe(f.producto))}</td>
     </tr>`).join('');
 
+  // Leyenda tipo sello (solo minorista, y solo si se eligió una): naranja, transparente,
+  // en diagonal sobre el presupuesto — igual de estilo al watermark de las libretas
+  // impresas de "MODELO EJEMPLO", pero para marcar si ya se cobró o no.
+  const textoMarcaAgua = modoMinorista && estadoPago
+    ? (estadoPago === 'pagado' ? 'PAGADO' : 'A PAGAR')
+    : null;
+
   return `
   <html><head><meta charset="utf-8"><style>
-    body { font-family: Arial, sans-serif; color: #24272A; padding: 36px 40px; }
+    body { font-family: Arial, sans-serif; color: #24272A; padding: 36px 40px; position: relative; }
+    .marca-agua {
+      position: absolute;
+      top: 26%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-25deg);
+      font-size: 90px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: rgba(225, 105, 14, 0.35);
+      white-space: nowrap;
+      z-index: 1000;
+    }
     .membrete { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #1B1B1B; padding-bottom: 14px; }
     .membrete .logo { width: 190px; height: auto; display: block; }
     .membrete .datos { text-align: right; font-size: 11.5px; color: #444; line-height: 1.5; }
@@ -409,6 +429,7 @@ function buildTicketHTML() {
     .totales .total { font-weight: bold; font-size: 17px; border-top: 2px solid #1B1B1B; margin-top: 8px; padding-top: 8px; }
   </style></head>
   <body>
+    ${textoMarcaAgua ? `<div class="marca-agua">${textoMarcaAgua}</div>` : ''}
     <div class="membrete">
       <img class="logo" src="${LOGO_DATA_URL}" alt="Powerlit" />
       <div class="datos">
@@ -570,10 +591,22 @@ function toggleModoMinorista() {
   document.getElementById('btn-guardar-cliente').hidden = modoMinorista;
   document.getElementById('fila-descuentos-mayorista').hidden = modoMinorista;
   document.getElementById('fila-descuentos-minorista').hidden = !modoMinorista;
+  document.getElementById('fila-estado-minorista').hidden = !modoMinorista;
   document.getElementById('campo-telefono').hidden = !modoMinorista;
+
+  // Al salir de minorista, la leyenda del PDF (Pagado / A pagar) no tiene sentido: se apaga.
+  if (!modoMinorista) elegirEstadoPago(null);
 
   document.querySelectorAll('#items-body tr').forEach(updateRow);
   recalcTotals();
+}
+
+// Leyenda opcional que se estampa en el PDF (solo en minorista). Elegir la misma
+// que ya está activa la apaga — por defecto no dice nada.
+function elegirEstadoPago(valor) {
+  estadoPago = (estadoPago === valor) ? null : valor;
+  document.getElementById('btn-estado-pagado').classList.toggle('activo', estadoPago === 'pagado');
+  document.getElementById('btn-estado-a-pagar').classList.toggle('activo', estadoPago === 'a-pagar');
 }
 
 // Vacía el formulario para empezar un presupuesto nuevo. La carpeta de guardado
@@ -593,6 +626,7 @@ async function limpiarTodo() {
   document.querySelectorAll('.in-descuento').forEach(sel => { sel.value = '0'; sel.disabled = false; });
   document.getElementById('descuento-minorista-monto').value = '';
   document.getElementById('descuento-minorista-monto').disabled = false;
+  elegirEstadoPago(null);
 
   document.getElementById('items-body').innerHTML = '';
   addRow();
@@ -680,6 +714,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.powerlit.buscarActualizaciones();
   });
   document.getElementById('btn-modo-minorista').addEventListener('click', toggleModoMinorista);
+  document.getElementById('btn-estado-pagado').addEventListener('click', () => elegirEstadoPago('pagado'));
+  document.getElementById('btn-estado-a-pagar').addEventListener('click', () => elegirEstadoPago('a-pagar'));
 
   addRow();
   initSettings();

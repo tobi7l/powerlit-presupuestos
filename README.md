@@ -46,11 +46,18 @@ cotice minorista por error, o al revés), mientras el modo minorista está activ
 - Aparece un campo "Teléfono" (al lado de la Fecha) para anotar el contacto de un
   cliente minorista que no está guardado en la lista — si se completa, sale impreso
   en el PDF junto con el cliente y la dirección.
+- Aparecen los botones "Pagado" y "A pagar" ("Marcar en el PDF"). Tocar uno estampa
+  esa leyenda en el PDF como un sello grande, naranja y transparente en diagonal
+  sobre el presupuesto (igual de estilo a las libretas talonario impresas). Tocar
+  el mismo botón de nuevo lo apaga. Por defecto no dice nada. Son excluyentes entre
+  sí, igual que los descuentos.
 
 El PDF generado se ve exactamente igual en los dos modos (mismo membrete, misma
-tabla) — la única diferencia son los números de precio (y el teléfono, si se cargó
-uno). El modo elegido no se guarda al cerrar la app: siempre arranca en mayorista,
-para no dejarlo "trabado" en minorista sin querer de una sesión a la otra.
+tabla) — la única diferencia son los números de precio, el teléfono si se cargó
+uno, y el sello de Pagado/A pagar si se eligió alguno. El modo elegido no se
+guarda al cerrar la app: siempre arranca en mayorista, para no dejarlo "trabado"
+en minorista sin querer de una sesión a la otra (y el sello se apaga solo al
+salir de minorista o al limpiar la plantilla).
 
 Los dos precios de cada producto viven en `src/catalog.json` (`precio` = mayorista,
 `precioMinorista` = minorista). Los productos que no tienen precio minorista propio

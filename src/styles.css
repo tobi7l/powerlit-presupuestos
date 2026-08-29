@@ -73,6 +73,25 @@ body {
   box-shadow: 0 0 0 3px #7A1FA640;
 }
 
+.estado-pago-grupo { display: flex; align-items: center; gap: 10px; }
+.estado-pago-label { font-size: 12px; color: #555; }
+.estado-pago-btn {
+  background: transparent;
+  border: 2px solid #E1690E;
+  color: #E1690E;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.estado-pago-btn:hover { background: #E1690E1A; }
+.estado-pago-btn.activo {
+  background: #E1690E;
+  color: #fff;
+  box-shadow: 0 0 0 3px #E1690E40;
+}
+
 .banner-minorista {
   background: #7A1FA6;
   color: #fff;
