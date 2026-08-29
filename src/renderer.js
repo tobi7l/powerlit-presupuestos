@@ -300,12 +300,8 @@ function filasValidas() {
 
 // En modo mayorista los 3 descuentos se aplican en cadena, cada uno sobre el saldo
 // que deja el anterior (10% + 5% + 5% da un descuento total un poco menor al 20%,
-// no exactamente 20%). En modo minorista es un solo descuento simple.
+// no exactamente 20%).
 function descuentosSeleccionados() {
-  if (modoMinorista) {
-    const d = parseFloat(document.getElementById('descuento-minorista').value) || 0;
-    return d > 0 ? [d] : [];
-  }
   return ['descuento1', 'descuento2', 'descuento3']
     .map(id => parseFloat(document.getElementById(id).value) || 0)
     .filter(d => d > 0);
@@ -321,14 +317,57 @@ function etiquetaDescuentos(descuentos) {
   return descuentos.length ? descuentos.map(d => d + '%').join(' + ') : '0%';
 }
 
+// En minorista hay dos formas de descuento excluyentes entre sí (o un % o un monto
+// fijo en $, nunca los dos juntos — para eso están deshabilitados uno al otro, ver
+// sincronizarDescuentosMinorista). Si hay un monto en $ cargado, tiene prioridad.
+function calcularDescuento(subtotal) {
+  if (modoMinorista) {
+    const monto = parseFloat(document.getElementById('descuento-minorista-monto').value) || 0;
+    if (monto > 0) {
+      const total = Math.max(0, subtotal - monto);
+      return { total, descMonto: subtotal - total, etiqueta: fmtMoney(monto) };
+    }
+    const pct = parseFloat(document.getElementById('descuento-minorista').value) || 0;
+    const { total, descMonto } = aplicarDescuentos(subtotal, pct > 0 ? [pct] : []);
+    return { total, descMonto, etiqueta: pct + '%' };
+  }
+  const descuentos = descuentosSeleccionados();
+  const { total, descMonto } = aplicarDescuentos(subtotal, descuentos);
+  return { total, descMonto, etiqueta: etiquetaDescuentos(descuentos) };
+}
+
+// Los dos descuentos de minorista son excluyentes: cargar uno apaga (y vacía) el
+// otro. Cada campo tiene su propio manejador — así el que se acaba de tocar manda
+// siempre, sin ambigüedad sobre "cuál gana" si por un instante los dos tienen valor.
+function alCambiarDescuentoPorcentaje() {
+  const pct = parseFloat(document.getElementById('descuento-minorista').value) || 0;
+  const inpMonto = document.getElementById('descuento-minorista-monto');
+  if (pct > 0) {
+    inpMonto.value = '';
+    inpMonto.disabled = true;
+  } else {
+    inpMonto.disabled = false;
+  }
+}
+
+function alCambiarDescuentoMonto() {
+  const monto = parseFloat(document.getElementById('descuento-minorista-monto').value) || 0;
+  const selPct = document.getElementById('descuento-minorista');
+  if (monto > 0) {
+    selPct.value = '0';
+    selPct.disabled = true;
+  } else {
+    selPct.disabled = false;
+  }
+}
+
 function recalcTotals() {
   const filas = filasValidas();
   const subtotal = filas.reduce((acc, f) => acc + f.cant * precioDe(f.producto), 0);
-  const descuentos = descuentosSeleccionados();
-  const { total, descMonto } = aplicarDescuentos(subtotal, descuentos);
+  const { total, descMonto, etiqueta } = calcularDescuento(subtotal);
 
   document.getElementById('out-subtotal').textContent = fmtMoney(subtotal);
-  document.getElementById('out-desc-pct').textContent = etiquetaDescuentos(descuentos);
+  document.getElementById('out-desc-pct').textContent = etiqueta;
   document.getElementById('out-desc-monto').textContent = '- ' + fmtMoney(descMonto);
   document.getElementById('out-total').textContent = fmtMoney(total);
 }
@@ -339,11 +378,10 @@ function buildTicketHTML() {
   const telefono = document.getElementById('telefono').value.trim();
   const fechaVal = document.getElementById('fecha').value;
   const fecha = fechaVal ? new Date(fechaVal + 'T00:00:00').toLocaleDateString('es-AR') : new Date().toLocaleDateString('es-AR');
-  const descuentos = descuentosSeleccionados();
 
   const filas = filasValidas();
   const subtotal = filas.reduce((acc, f) => acc + f.cant * precioDe(f.producto), 0);
-  const { total, descMonto } = aplicarDescuentos(subtotal, descuentos);
+  const { total, descMonto, etiqueta } = calcularDescuento(subtotal);
 
   const filasHTML = filas.map(f => `
     <tr>
@@ -390,7 +428,7 @@ function buildTicketHTML() {
     </table>
     <div class="totales">
       <div><span>Subtotal</span><span>${fmtMoney(subtotal)}</span></div>
-      <div><span>Descuento (${etiquetaDescuentos(descuentos)})</span><span>- ${fmtMoney(descMonto)}</span></div>
+      <div><span>Descuento (${etiqueta})</span><span>- ${fmtMoney(descMonto)}</span></div>
       <div class="total"><span>TOTAL</span><span>${fmtMoney(total)}</span></div>
     </div>
   </body></html>`;
@@ -531,7 +569,7 @@ function toggleModoMinorista() {
   document.getElementById('btn-clientes').hidden = modoMinorista;
   document.getElementById('btn-guardar-cliente').hidden = modoMinorista;
   document.getElementById('fila-descuentos-mayorista').hidden = modoMinorista;
-  document.getElementById('campo-descuento-minorista').hidden = !modoMinorista;
+  document.getElementById('fila-descuentos-minorista').hidden = !modoMinorista;
   document.getElementById('campo-telefono').hidden = !modoMinorista;
 
   document.querySelectorAll('#items-body tr').forEach(updateRow);
@@ -552,7 +590,9 @@ async function limpiarTodo() {
   document.getElementById('direccion').value = '';
   document.getElementById('telefono').value = '';
   document.getElementById('fecha').value = new Date().toISOString().slice(0, 10);
-  document.querySelectorAll('.in-descuento').forEach(sel => { sel.value = '0'; });
+  document.querySelectorAll('.in-descuento').forEach(sel => { sel.value = '0'; sel.disabled = false; });
+  document.getElementById('descuento-minorista-monto').value = '';
+  document.getElementById('descuento-minorista-monto').disabled = false;
 
   document.getElementById('items-body').innerHTML = '';
   addRow();
@@ -584,7 +624,18 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('fecha').value = new Date().toISOString().slice(0, 10);
   document.getElementById('btn-add-row').addEventListener('click', addRow);
-  document.querySelectorAll('.in-descuento').forEach(sel => sel.addEventListener('change', recalcTotals));
+  document.querySelectorAll('.in-descuento').forEach(sel => {
+    if (sel.id === 'descuento-minorista') return; // tiene su propio manejador combinado, abajo
+    sel.addEventListener('change', recalcTotals);
+  });
+  document.getElementById('descuento-minorista').addEventListener('change', () => {
+    alCambiarDescuentoPorcentaje();
+    recalcTotals();
+  });
+  document.getElementById('descuento-minorista-monto').addEventListener('input', () => {
+    alCambiarDescuentoMonto();
+    recalcTotals();
+  });
   document.getElementById('btn-generar').addEventListener('click', generarPDF);
   document.getElementById('btn-ver-pdf').addEventListener('click', () => {
     if (ultimoPdfGenerado) window.powerlit.abrirCarpeta(ultimoPdfGenerado);

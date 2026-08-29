@@ -37,7 +37,12 @@ cotice minorista por error, o al revés), mientras el modo minorista está activ
 - El botón queda marcado como activo ("✓ Modo Minorista").
 - Desaparecen "👥 Clientes" y "💾 Guardar cliente" (la lista de clientes es para
   mayorista; en minorista no aplica).
-- Los 3 descuentos en cadena se reemplazan por un único campo "Descuento" simple.
+- Los 3 descuentos en cadena se reemplazan por dos campos: "Descuento (%)" y
+  "Descuento ($)" — son excluyentes entre sí (uno, el otro, o ninguno, nunca los
+  dos juntos). Elegir un % apaga y vacía el campo en $; para volver a usar el
+  campo en $ hay que llevar el % de vuelta a 0% primero, y viceversa. Este último
+  es para cuando se negocia una rebaja en pesos en vez de un porcentaje (por
+  ejemplo, un tanque de segunda con un defecto).
 - Aparece un campo "Teléfono" (al lado de la Fecha) para anotar el contacto de un
   cliente minorista que no está guardado en la lista — si se completa, sale impreso
   en el PDF junto con el cliente y la dirección.
