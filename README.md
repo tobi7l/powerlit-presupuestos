@@ -35,11 +35,17 @@ cotice minorista por error, o al revés), mientras el modo minorista está activ
 - Aparece un cartel morado bien grande arriba de todo: "⚠ MODO MINORISTA".
 - Todos los colores naranjas de la app (tabla de productos, botones) cambian a morado.
 - El botón queda marcado como activo ("✓ Modo Minorista").
+- Desaparecen "👥 Clientes" y "💾 Guardar cliente" (la lista de clientes es para
+  mayorista; en minorista no aplica).
+- Los 3 descuentos en cadena se reemplazan por un único campo "Descuento" simple.
+- Aparece un campo "Teléfono" (al lado de la Fecha) para anotar el contacto de un
+  cliente minorista que no está guardado en la lista — si se completa, sale impreso
+  en el PDF junto con el cliente y la dirección.
 
 El PDF generado se ve exactamente igual en los dos modos (mismo membrete, misma
-tabla) — la única diferencia son los números de precio. El modo elegido no se
-guarda al cerrar la app: siempre arranca en mayorista, para no dejarlo "trabado"
-en minorista sin querer de una sesión a la otra.
+tabla) — la única diferencia son los números de precio (y el teléfono, si se cargó
+uno). El modo elegido no se guarda al cerrar la app: siempre arranca en mayorista,
+para no dejarlo "trabado" en minorista sin querer de una sesión a la otra.
 
 Los dos precios de cada producto viven en `src/catalog.json` (`precio` = mayorista,
 `precioMinorista` = minorista). Los productos que no tienen precio minorista propio

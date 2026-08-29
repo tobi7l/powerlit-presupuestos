@@ -298,9 +298,14 @@ function filasValidas() {
   return filas;
 }
 
-// Los 3 descuentos se aplican en cadena, cada uno sobre el saldo que deja el anterior
-// (10% + 5% + 5% da un descuento total un poco menor al 20%, no exactamente 20%).
+// En modo mayorista los 3 descuentos se aplican en cadena, cada uno sobre el saldo
+// que deja el anterior (10% + 5% + 5% da un descuento total un poco menor al 20%,
+// no exactamente 20%). En modo minorista es un solo descuento simple.
 function descuentosSeleccionados() {
+  if (modoMinorista) {
+    const d = parseFloat(document.getElementById('descuento-minorista').value) || 0;
+    return d > 0 ? [d] : [];
+  }
   return ['descuento1', 'descuento2', 'descuento3']
     .map(id => parseFloat(document.getElementById(id).value) || 0)
     .filter(d => d > 0);
@@ -331,6 +336,7 @@ function recalcTotals() {
 function buildTicketHTML() {
   const cliente = document.getElementById('cliente').value.trim() || '—';
   const direccion = document.getElementById('direccion').value.trim() || '—';
+  const telefono = document.getElementById('telefono').value.trim();
   const fechaVal = document.getElementById('fecha').value;
   const fecha = fechaVal ? new Date(fechaVal + 'T00:00:00').toLocaleDateString('es-AR') : new Date().toLocaleDateString('es-AR');
   const descuentos = descuentosSeleccionados();
@@ -375,7 +381,7 @@ function buildTicketHTML() {
       </div>
     </div>
     <div class="meta">
-      <div><b>Cliente:</b> ${cliente}<br/><b>Dirección:</b> ${direccion}</div>
+      <div><b>Cliente:</b> ${cliente}<br/><b>Dirección:</b> ${direccion}${telefono ? `<br/><b>Teléfono:</b> ${telefono}` : ''}</div>
       <div><b>Fecha:</b> ${fecha}</div>
     </div>
     <table>
@@ -520,6 +526,14 @@ function toggleModoMinorista() {
   btn.classList.toggle('activo', modoMinorista);
   btn.textContent = modoMinorista ? '✓ Modo Minorista' : '🛒 Modo Minorista';
 
+  // En minorista no aplica la lista de clientes mayoristas ni sus descuentos en cadena:
+  // se esconden esos controles y aparecen el descuento único y el teléfono en su lugar.
+  document.getElementById('btn-clientes').hidden = modoMinorista;
+  document.getElementById('btn-guardar-cliente').hidden = modoMinorista;
+  document.getElementById('fila-descuentos-mayorista').hidden = modoMinorista;
+  document.getElementById('fila-descuento-minorista').hidden = !modoMinorista;
+  document.getElementById('campo-telefono').hidden = !modoMinorista;
+
   document.querySelectorAll('#items-body tr').forEach(updateRow);
   recalcTotals();
 }
@@ -536,6 +550,7 @@ async function limpiarTodo() {
   document.getElementById('cliente').value = '';
   delete document.getElementById('cliente').dataset.clienteId;
   document.getElementById('direccion').value = '';
+  document.getElementById('telefono').value = '';
   document.getElementById('fecha').value = new Date().toISOString().slice(0, 10);
   document.querySelectorAll('.in-descuento').forEach(sel => { sel.value = '0'; });
 
