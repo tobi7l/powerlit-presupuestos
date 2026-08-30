@@ -65,9 +65,21 @@ cd powerlit-presupuestos/bot
 npm install
 ```
 
-Puppeteer va a bajar su propio Chromium — puede pedir instalar algunas librerías del
-sistema, que indica en su propio mensaje de error si faltan (`sudo apt-get install -y
-<lo que pida>`).
+Puppeteer baja su propio Chromium, pero en un Debian/Ubuntu recién instalado le van a
+faltar sus librerías del sistema — instalarlas antes de probar (si falta alguna otra,
+el error de Puppeteer al lanzar el navegador la nombra):
+
+```bash
+sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+  libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+  libasound2 libpango-1.0-0 libcairo2 libatspi2.0-0
+```
+
+Probar que la generación de PDF funciona en esta VM antes de seguir:
+
+```bash
+node test-local.js   # tiene que terminar con "PDF de prueba escrito en ..."
+```
 
 ### 4. Cuenta de servicio de Google (para leer/escribir en Drive)
 

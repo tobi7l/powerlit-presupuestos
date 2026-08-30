@@ -137,7 +137,12 @@ async function generarPdfBuffer(html) {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'load' });
-    return await page.pdf({ format: 'A4', printBackground: true });
+    const pdfBytes = await page.pdf({ format: 'A4', printBackground: true });
+    // Puppeteer 22+ devuelve Uint8Array, no un Buffer de Node — node-telegram-bot-api
+    // solo reconoce Buffer.isBuffer() para adjuntar el archivo correctamente; sin esta
+    // conversión, mete el PDF entero como si fuera un parámetro de texto y explota
+    // ("Maximum call stack size exceeded" al armar la query string).
+    return Buffer.from(pdfBytes);
   } finally {
     await browser.close();
   }

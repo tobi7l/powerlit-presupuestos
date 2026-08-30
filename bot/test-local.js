@@ -66,8 +66,14 @@ async function main() {
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'load' });
-  const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+  const pdfBuffer = Buffer.from(await page.pdf({ format: 'A4', printBackground: true }));
   await browser.close();
+
+  // node-telegram-bot-api solo adjunta el archivo bien si es un Buffer de Node de
+  // verdad (Buffer.isBuffer) — Puppeteer 22+ devuelve Uint8Array, hay que convertirlo
+  // (ver el mismo Buffer.from() en generarPdfBuffer() de index.js). Si esto da false,
+  // enviar el PDF por Telegram rompe con "Maximum call stack size exceeded".
+  console.log('¿Es un Buffer de Node? (tiene que decir true):', Buffer.isBuffer(pdfBuffer));
 
   const outPath = path.join(__dirname, 'test-output.pdf');
   fs.writeFileSync(outPath, pdfBuffer);
