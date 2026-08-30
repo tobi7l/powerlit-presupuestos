@@ -117,6 +117,25 @@ function buscarCliente(nombreBuscado, clientes) {
   return { tipo: 'ambiguo', candidatos: coincidencias };
 }
 
+// Resuelve la primera línea del mensaje contra la lista de clientes guardados. Si no
+// coincide con ninguno, lo trata como un cliente ocasional: sin descuento, salvo que se
+// haya escrito pegado al nombre (ej. "GlobalMat 10+5" = cliente "GlobalMat" con 10%+5%
+// encadenado). Devuelve { tipo: 'guardado'|'ocasional'|'ambiguo', ... }.
+function resolverCliente(primeraLinea, clientes) {
+  const porNombreCompleto = buscarCliente(primeraLinea, clientes);
+  if (porNombreCompleto.tipo === 'ok') return { tipo: 'guardado', cliente: porNombreCompleto.cliente };
+  if (porNombreCompleto.tipo === 'ambiguo') return porNombreCompleto;
+
+  const conDescuento = primeraLinea.match(/^(.+?)\s+((?:\d{1,2}\s*\+\s*)*\d{1,2})\s*%?$/);
+  if (conDescuento) {
+    const nombre = conDescuento[1].trim();
+    const descuentos = conDescuento[2].split('+').map(s => parseFloat(s.trim())).filter(d => d > 0);
+    return { tipo: 'ocasional', nombre, descuentos };
+  }
+
+  return { tipo: 'ocasional', nombre: primeraLinea.trim(), descuentos: [] };
+}
+
 function etiquetaDescuentos(descuentos) {
   return descuentos.length ? descuentos.map(d => d + '%').join(' + ') : '0%';
 }
@@ -156,7 +175,7 @@ bot.on('message', async (msg) => {
 
   if (texto === '/start' || texto === '/ayuda' || texto === '/help') {
     bot.sendMessage(chatId,
-      'Mandame el nombre del cliente en el primer renglón y el pedido abajo, uno por línea. Ejemplo:\n\nFenix\n10 1000T\n6 750B\n\nTe devuelvo el PDF del presupuesto con los descuentos guardados de ese cliente.'
+      'Mandame el nombre del cliente en el primer renglón y el pedido abajo, uno por línea. Ejemplo:\n\nFenix\n10 1000T\n6 750B\n\nSi "Fenix" está guardado en la lista, uso sus descuentos. Si no, cotizo sin descuento — salvo que lo pongas pegado al nombre, ej.:\n\nGlobalMat 10+5\n5 750T\n\n(cliente ocasional "GlobalMat", descuento 10%+5% encadenado)'
       + (ALLOWED_CHAT_IDS.length === 0 ? '\n\n(Este chat todavía no está autorizado — avisale al administrador.)' : '')
     );
     return;
@@ -179,19 +198,22 @@ bot.on('message', async (msg) => {
   try {
     const drive = driveClient();
     const clientes = await listarClientes(drive);
-    const resultadoCliente = buscarCliente(nombreCliente, clientes);
+    const resultadoCliente = resolverCliente(nombreCliente, clientes);
 
-    if (resultadoCliente.tipo === 'no-encontrado') {
-      bot.sendMessage(chatId, `No encontré a "${nombreCliente}" en la lista de clientes. Revisá el nombre, o guardalo primero desde la app.`);
-      return;
-    }
     if (resultadoCliente.tipo === 'ambiguo') {
       const nombres = resultadoCliente.candidatos.map(c => c.nombre).join(', ');
       bot.sendMessage(chatId, `Hay más de un cliente que coincide con "${nombreCliente}": ${nombres}. Escribí el nombre más completo.`);
       return;
     }
 
-    const cliente = resultadoCliente.cliente;
+    const esGuardado = resultadoCliente.tipo === 'guardado';
+    const nombreFinal = esGuardado ? resultadoCliente.cliente.nombre : resultadoCliente.nombre;
+    const direccionFinal = esGuardado ? (resultadoCliente.cliente.direccion || '—') : '—';
+    const descuentos = esGuardado
+      ? [resultadoCliente.cliente.descuento1, resultadoCliente.cliente.descuento2, resultadoCliente.cliente.descuento3]
+          .map(d => parseFloat(d) || 0).filter(d => d > 0)
+      : resultadoCliente.descuentos;
+
     const { resueltas, noResueltas } = interpretarPedido(textoPedido, CATALOG);
 
     if (resueltas.length === 0) {
@@ -209,15 +231,12 @@ bot.on('message', async (msg) => {
       };
     });
     const subtotal = filas.reduce((acc, f) => acc + f.importe, 0);
-    const descuentos = [cliente.descuento1, cliente.descuento2, cliente.descuento3]
-      .map(d => parseFloat(d) || 0)
-      .filter(d => d > 0);
     const { total, descMonto } = aplicarDescuentos(subtotal, descuentos);
 
     const ahora = new Date();
     const html = construirTicketHTML({
-      cliente: cliente.nombre,
-      direccion: cliente.direccion || '—',
+      cliente: nombreFinal,
+      direccion: direccionFinal,
       telefono: '',
       fecha: ahora.toLocaleDateString('es-AR'),
       filas, subtotal, descMonto, total,
@@ -229,7 +248,7 @@ bot.on('message', async (msg) => {
 
     bot.sendMessage(chatId, 'Generando el PDF...');
     const pdfBuffer = await generarPdfBuffer(html);
-    const filename = nombreArchivo(cliente.nombre, ahora);
+    const filename = nombreArchivo(nombreFinal, ahora);
 
     await bot.sendDocument(chatId, pdfBuffer, {}, { filename, contentType: 'application/pdf' });
 
@@ -241,6 +260,7 @@ bot.on('message', async (msg) => {
     }
 
     const avisos = [];
+    if (!esGuardado) avisos.push(`ℹ Cliente ocasional (no está en la lista guardada): "${nombreFinal}" — descuento aplicado: ${etiquetaDescuentos(descuentos)}.`);
     const asumidos = resueltas.filter(r => r.materialAsumido);
     if (asumidos.length) avisos.push(`⚠ Asumí tricapa en ${asumidos.length} línea(s) porque no se especificó el material.`);
     if (noResueltas.length) avisos.push(`⚠ No pude interpretar: ${noResueltas.map(l => `"${l}"`).join(', ')}.`);
