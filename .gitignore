@@ -1,2 +1,8 @@
 node_modules/
 dist/
+
+# Credenciales del bot de Telegram - el repo es PUBLICO (lo usa el auto-actualizador),
+# esto nunca se debe subir.
+bot/.env
+bot/service-account*.json
+bot/test-output.pdf

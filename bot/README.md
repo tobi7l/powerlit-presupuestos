@@ -1,0 +1,134 @@
+# Bot de Telegram — Presupuestos Powerlit
+
+Genera presupuestos por chat, sin abrir la app. Reusa el mismo catálogo, parser de
+pedidos y plantilla de PDF que la app de escritorio (`../src/`), así el resultado es
+idéntico al que genera la app.
+
+## Uso (una vez desplegado)
+
+Mandarle al bot el nombre del cliente en el primer renglón, y el pedido debajo:
+
+```
+Fenix
+10 1000T
+6 750B
+```
+
+El bot busca a "Fenix" en la lista de clientes de la app (misma búsqueda por palabras
+sueltas), usa sus descuentos guardados, arma el PDF y lo manda por Telegram. Si se
+configuró `DRIVE_PRESUPUESTOS_FOLDER_ID`, también deja una copia en Drive organizada
+por año/mes, igual que la app.
+
+**Nota:** el bot solo sirve para clientes ya guardados en la lista (mayorista, con sus
+3 descuentos). No tiene modo minorista, teléfono ni sello de Pagado/A pagar — para eso
+está la app.
+
+## Probar la lógica sin desplegar nada
+
+```
+cd bot
+npm install
+node test-local.js
+```
+
+Genera `bot/test-output.pdf` con un cliente y pedido de ejemplo hardcodeados en el
+script, sin necesitar token de Telegram ni credenciales de Drive. Sirve para validar
+que el parser/catálogo/plantilla siguen andando bien después de cualquier cambio.
+
+## Desplegar en una VM de Google Cloud (nivel gratuito)
+
+### 1. Crear la VM
+
+En la consola de Google Cloud (console.cloud.google.com) → Compute Engine → Crear
+instancia:
+- Nombre: `powerlit-bot`
+- Región: una de las que entran en el nivel "Always Free" (`us-west1`, `us-central1`
+  o `us-east1`)
+- Tipo de máquina: `e2-micro`
+- Sistema operativo: Debian o Ubuntu (imagen por defecto sirve)
+
+### 2. Conectarse por SSH e instalar Node.js
+
+Desde la consola de Google Cloud, botón "SSH" al lado de la VM (abre una terminal en
+el navegador, no hace falta instalar nada extra):
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs git
+```
+
+### 3. Traer el código
+
+```bash
+git clone https://github.com/tobi7l/powerlit-presupuestos.git
+cd powerlit-presupuestos/bot
+npm install
+```
+
+Puppeteer va a bajar su propio Chromium — puede pedir instalar algunas librerías del
+sistema, que indica en su propio mensaje de error si faltan (`sudo apt-get install -y
+<lo que pida>`).
+
+### 4. Cuenta de servicio de Google (para leer/escribir en Drive)
+
+1. En la consola de Google Cloud → IAM y administración → Cuentas de servicio → Crear
+   cuenta de servicio. Nombre: `powerlit-bot`.
+2. Una vez creada, pestaña "Claves" → Agregar clave → JSON. Se descarga un archivo.
+3. Subir ese archivo a la VM como `powerlit-presupuestos/bot/service-account.json`
+   (por ejemplo arrastrándolo en la misma ventana de SSH del navegador, que tiene un
+   botón para subir archivos).
+4. Copiar el mail de la cuenta de servicio (termina en
+   `...@<proyecto>.iam.gserviceaccount.com`, se ve en la lista de cuentas de servicio).
+5. En Google Drive, compartir la carpeta **"Powerlit App"** y la carpeta
+   **"Presupuestos"** con ese mail, con permiso de Editor — igual que se comparte una
+   carpeta con cualquier persona.
+
+### 5. Datos de Drive
+
+- Abrir `clientes.json` dentro de "Powerlit App" en Drive (o click derecho → "Obtener
+  enlace") y copiar el ID de la URL: `.../file/d/`**`ESTE_ID`**`/view`.
+- Abrir la carpeta "Presupuestos" y copiar el ID de su URL:
+  `.../folders/`**`ESTE_ID`**.
+
+### 6. Configurar el bot
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Completar `TELEGRAM_BOT_TOKEN` (el que dio @BotFather), `DRIVE_CLIENTES_FILE_ID`,
+`DRIVE_PRESUPUESTOS_FOLDER_ID`. Para `TELEGRAM_ALLOWED_CHAT_IDS`, hablarle a
+**@userinfobot** en Telegram para conseguir el chat id propio.
+
+### 7. Dejarlo corriendo siempre (systemd)
+
+```bash
+sudo tee /etc/systemd/system/powerlit-bot.service > /dev/null <<'EOF'
+[Unit]
+Description=Bot de Telegram - Presupuestos Powerlit
+After=network.target
+
+[Service]
+WorkingDirectory=/home/%u/powerlit-presupuestos/bot
+ExecStart=/usr/bin/node index.js
+Restart=always
+User=%u
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now powerlit-bot
+sudo systemctl status powerlit-bot   # confirmar que dice "active (running)"
+journalctl -u powerlit-bot -f        # ver los logs en vivo
+```
+
+### 8. Actualizar el bot más adelante
+
+```bash
+cd ~/powerlit-presupuestos
+git pull
+sudo systemctl restart powerlit-bot
+```
