@@ -6,22 +6,27 @@ idéntico al que genera la app.
 
 ## Uso (una vez desplegado)
 
-Mandarle al bot el nombre del cliente en el primer renglón, y el pedido debajo:
+Mandarle `/start` (o cualquier mensaje) al bot. Todo se elige tocando botones — mayorista
+o minorista, el cliente (de una lista paginada, o "cliente ocasional"), y en minorista
+además teléfono, descuento y sello — salvo dos cosas que siguen siendo más rápido
+escribirlas: el nombre de un cliente que no está guardado, y el pedido en sí (productos
+y cantidades), un renglón por línea:
 
 ```
-Fenix
 10 1000T
 6 750B
 ```
 
-El bot busca a "Fenix" en la lista de clientes de la app (misma búsqueda por palabras
-sueltas), usa sus descuentos guardados, arma el PDF y lo manda por Telegram. Si se
-configuró `DRIVE_PRESUPUESTOS_FOLDER_ID`, también deja una copia en Drive organizada
-por año/mes, igual que la app.
+- **Mayorista:** elegís el cliente de la lista guardada (usa sus 3 descuentos en
+  cadena) o "Cliente ocasional" (sin descuento, salvo que elijas uno de los botones o
+  escribas uno propio tipo `10+5`).
+- **Minorista:** escribís el nombre, tocás teléfono (opcional), el tipo de descuento
+  (ninguno / % / monto fijo en $) y el sello del PDF (Pagado / A pagar / ninguno). Usa
+  la lista de precios minorista del catálogo.
 
-**Nota:** el bot solo sirve para clientes ya guardados en la lista (mayorista, con sus
-3 descuentos). No tiene modo minorista, teléfono ni sello de Pagado/A pagar — para eso
-está la app.
+Al final el bot arma el PDF y lo manda por Telegram. Si se configuró
+`DRIVE_PRESUPUESTOS_FOLDER_ID`, también deja una copia en Drive organizada por año/mes,
+igual que la app. `/nuevo` en cualquier momento reinicia el flujo desde cero.
 
 ## Probar la lógica sin desplegar nada
 
