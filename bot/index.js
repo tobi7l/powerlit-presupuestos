@@ -26,7 +26,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const puppeteer = require('puppeteer');
 const { google } = require('googleapis');
 
-const { interpretarPedido } = require('../src/orderParser.js');
+const { interpretarPedido, normalizar } = require('../src/orderParser.js');
 const { construirTicketHTML, fmtMoney } = require('../src/ticketTemplate.js');
 const { aplicarDescuentos } = require('../src/pricing.js');
 const CATALOG = require('../src/catalog.json');
@@ -178,7 +178,28 @@ function enviarPaginaClientes(chatId, sesion) {
   if (nav.length) botones.push(nav);
 
   botones.push([{ text: '👤 Cliente ocasional', callback_data: 'cliente:ocasional' }]);
-  bot.sendMessage(chatId, 'Elegí el cliente:', { reply_markup: { inline_keyboard: botones } });
+  bot.sendMessage(chatId, 'Elegí el cliente de la lista, o escribí parte del nombre para buscarlo:', { reply_markup: { inline_keyboard: botones } });
+}
+
+// Misma búsqueda por palabras sueltas que usa la app (src/renderer.js): cada palabra
+// escrita tiene que aparecer en algún lado del nombre del cliente, sin importar mayúsculas/acentos.
+function filtrarClientes(texto, clientes) {
+  const tokens = normalizar(texto).trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return [];
+  return clientes.filter(c => {
+    const nombreNorm = normalizar(c.nombre);
+    return tokens.every(t => nombreNorm.includes(t));
+  });
+}
+
+function seleccionarClienteGuardado(sesion, cliente) {
+  sesion.esGuardado = true;
+  sesion.clienteFinal = {
+    nombre: cliente.nombre,
+    direccion: cliente.direccion || '—',
+    descuentos: [cliente.descuento1, cliente.descuento2, cliente.descuento3]
+      .map(d => parseFloat(d) || 0).filter(d => d > 0)
+  };
 }
 
 function pedirPedido(chatId, sesion) {
@@ -304,6 +325,7 @@ bot.on('callback_query', async (query) => {
     if (data === 'modo:mayorista') {
       sesion.modo = 'mayorista';
       sesion.pagina = 0;
+      sesion.esperando = 'buscar-cliente';
       const drive = driveClient();
       sesion.clientes = await listarClientes(drive);
       if (sesion.clientes.length === 0) {
@@ -339,13 +361,7 @@ bot.on('callback_query', async (query) => {
         bot.sendMessage(chatId, 'Ese cliente ya no está disponible. Escribí /nuevo para empezar de nuevo.');
         return;
       }
-      sesion.esGuardado = true;
-      sesion.clienteFinal = {
-        nombre: cliente.nombre,
-        direccion: cliente.direccion || '—',
-        descuentos: [cliente.descuento1, cliente.descuento2, cliente.descuento3]
-          .map(d => parseFloat(d) || 0).filter(d => d > 0)
-      };
+      seleccionarClienteGuardado(sesion, cliente);
       pedirPedido(chatId, sesion);
       return;
     }
@@ -438,6 +454,29 @@ bot.on('message', async (msg) => {
 
   try {
     switch (sesion.esperando) {
+      case 'buscar-cliente': {
+        const matches = filtrarClientes(texto, sesion.clientes || []);
+
+        if (matches.length === 0) {
+          bot.sendMessage(chatId, `No encontré ningún cliente con "${texto}". Probá con otra parte del nombre, o usá los botones de arriba.`);
+          break;
+        }
+
+        if (matches.length === 1) {
+          seleccionarClienteGuardado(sesion, matches[0]);
+          pedirPedido(chatId, sesion);
+          break;
+        }
+
+        const limitados = matches.slice(0, CLIENTES_POR_PAGINA);
+        const botones = limitados.map(c => [{ text: c.nombre, callback_data: `cliente:${sesion.clientes.indexOf(c)}` }]);
+        const encabezado = matches.length > limitados.length
+          ? `Encontré ${matches.length} clientes con "${texto}", te muestro los primeros ${limitados.length} — escribí algo más específico si no está el que buscás:`
+          : `Encontré estos clientes con "${texto}":`;
+        bot.sendMessage(chatId, encabezado, { reply_markup: { inline_keyboard: botones } });
+        break;
+      }
+
       case 'nombre-minorista': {
         sesion.minNombre = texto;
         sesion.esperando = 'telefono-minorista';
