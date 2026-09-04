@@ -167,6 +167,18 @@ function pedirModo(chatId) {
 
 const CLIENTES_POR_PAGINA = 8;
 
+// Paso por defecto al elegir Mayorista: no tira la lista completa (puede ser larga),
+// pide escribir el nombre y deja la lista completa y "cliente ocasional" como opciones
+// aparte para quien prefiera navegar en vez de escribir.
+function pedirNombreClienteMayorista(chatId) {
+  bot.sendMessage(chatId, 'Escribí el nombre del cliente (o parte) para buscarlo:', {
+    reply_markup: { inline_keyboard: [
+      [{ text: '📋 Ver lista completa', callback_data: 'verlista' }],
+      [{ text: '👤 Cliente ocasional', callback_data: 'cliente:ocasional' }]
+    ] }
+  });
+}
+
 function enviarPaginaClientes(chatId, sesion) {
   const inicio = sesion.pagina * CLIENTES_POR_PAGINA;
   const pagina = sesion.clientes.slice(inicio, inicio + CLIENTES_POR_PAGINA);
@@ -179,6 +191,15 @@ function enviarPaginaClientes(chatId, sesion) {
 
   botones.push([{ text: '👤 Cliente ocasional', callback_data: 'cliente:ocasional' }]);
   bot.sendMessage(chatId, 'Elegí el cliente de la lista, o escribí parte del nombre para buscarlo:', { reply_markup: { inline_keyboard: botones } });
+}
+
+function mostrarResultadosBusqueda(chatId, sesion, texto, matches) {
+  const limitados = matches.slice(0, CLIENTES_POR_PAGINA);
+  const botones = limitados.map(c => [{ text: c.nombre, callback_data: `cliente:${sesion.clientes.indexOf(c)}` }]);
+  const encabezado = matches.length > limitados.length
+    ? `Encontré ${matches.length} clientes con "${texto}", te muestro los primeros ${limitados.length} — escribí algo más específico si no está el que buscás:`
+    : `Encontré esto con "${texto}" — tocá para confirmar:`;
+  bot.sendMessage(chatId, encabezado, { reply_markup: { inline_keyboard: botones } });
 }
 
 // Misma búsqueda por palabras sueltas que usa la app (src/renderer.js): cada palabra
@@ -331,6 +352,11 @@ bot.on('callback_query', async (query) => {
       if (sesion.clientes.length === 0) {
         bot.sendMessage(chatId, 'No pude leer la lista de clientes guardados ahora. Puede ser un cliente ocasional igual:');
       }
+      pedirNombreClienteMayorista(chatId);
+      return;
+    }
+
+    if (data === 'verlista') {
       enviarPaginaClientes(chatId, sesion);
       return;
     }
@@ -460,14 +486,7 @@ bot.on('message', async (msg) => {
       if (matches.length > 0) {
         const nuevaSesion = { modo: 'mayorista', clientes, pagina: 0, esperando: 'buscar-cliente' };
         sesiones.set(chatId, nuevaSesion);
-        if (matches.length === 1) {
-          seleccionarClienteGuardado(nuevaSesion, matches[0]);
-          pedirPedido(chatId, nuevaSesion);
-        } else {
-          const limitados = matches.slice(0, CLIENTES_POR_PAGINA);
-          const botones = limitados.map(c => [{ text: c.nombre, callback_data: `cliente:${clientes.indexOf(c)}` }]);
-          bot.sendMessage(chatId, `Encontré estos clientes con "${texto}":`, { reply_markup: { inline_keyboard: botones } });
-        }
+        mostrarResultadosBusqueda(chatId, nuevaSesion, texto, matches);
         return;
       }
     } catch (err) {
@@ -488,18 +507,7 @@ bot.on('message', async (msg) => {
           break;
         }
 
-        if (matches.length === 1) {
-          seleccionarClienteGuardado(sesion, matches[0]);
-          pedirPedido(chatId, sesion);
-          break;
-        }
-
-        const limitados = matches.slice(0, CLIENTES_POR_PAGINA);
-        const botones = limitados.map(c => [{ text: c.nombre, callback_data: `cliente:${sesion.clientes.indexOf(c)}` }]);
-        const encabezado = matches.length > limitados.length
-          ? `Encontré ${matches.length} clientes con "${texto}", te muestro los primeros ${limitados.length} — escribí algo más específico si no está el que buscás:`
-          : `Encontré estos clientes con "${texto}":`;
-        bot.sendMessage(chatId, encabezado, { reply_markup: { inline_keyboard: botones } });
+        mostrarResultadosBusqueda(chatId, sesion, texto, matches);
         break;
       }
 
