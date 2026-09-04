@@ -448,6 +448,32 @@ bot.on('message', async (msg) => {
       bot.sendMessage(chatId, 'Usá los botones de arriba 👆 (o escribí /nuevo para empezar de cero).');
       return;
     }
+
+    // Mensaje "en frío" (sin haber tocado ningún botón todavía): probamos si es una
+    // búsqueda directa de cliente mayorista, para no obligar a tocar "Mayorista" antes
+    // de poder escribir el nombre — así se sigue pudiendo arrancar escribiendo, como
+    // antes de que existiera el flujo a botones.
+    try {
+      const drive = driveClient();
+      const clientes = await listarClientes(drive);
+      const matches = filtrarClientes(texto, clientes);
+      if (matches.length > 0) {
+        const nuevaSesion = { modo: 'mayorista', clientes, pagina: 0, esperando: 'buscar-cliente' };
+        sesiones.set(chatId, nuevaSesion);
+        if (matches.length === 1) {
+          seleccionarClienteGuardado(nuevaSesion, matches[0]);
+          pedirPedido(chatId, nuevaSesion);
+        } else {
+          const limitados = matches.slice(0, CLIENTES_POR_PAGINA);
+          const botones = limitados.map(c => [{ text: c.nombre, callback_data: `cliente:${clientes.indexOf(c)}` }]);
+          bot.sendMessage(chatId, `Encontré estos clientes con "${texto}":`, { reply_markup: { inline_keyboard: botones } });
+        }
+        return;
+      }
+    } catch (err) {
+      console.error('Error buscando cliente en mensaje inicial:', err.message);
+    }
+
     pedirModo(chatId);
     return;
   }
