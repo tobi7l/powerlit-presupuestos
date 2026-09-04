@@ -79,6 +79,19 @@ async function listarClientes(drive) {
   return Array.isArray(res.data) ? res.data : [];
 }
 
+// El modo inline de Telegram puede disparar una consulta por cada letra que se
+// escribe — cachear la lista un ratito evita pegarle a Drive todo el tiempo y hace
+// que las sugerencias aparezcan al instante.
+const CACHE_CLIENTES_MS = 60 * 1000;
+let clientesCache = { datos: [], ts: 0 };
+
+async function obtenerClientesCacheados() {
+  if (Date.now() - clientesCache.ts > CACHE_CLIENTES_MS) {
+    clientesCache = { datos: await listarClientes(driveClient()), ts: Date.now() };
+  }
+  return clientesCache.datos;
+}
+
 async function obtenerOCrearCarpeta(drive, nombre, parentId) {
   const nombreEscapado = nombre.replace(/'/g, "\\'");
   const q = `name='${nombreEscapado}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
@@ -446,6 +459,41 @@ bot.on('callback_query', async (query) => {
   }
 });
 
+// --- Búsqueda de cliente en modo inline (escribiendo "@nombredelbot fen" en el chat) ---
+// Requiere haber activado el modo inline del bot una vez con @BotFather (/setinline).
+// Telegram le va pidiendo resultados al bot con cada letra que se escribe, y al tocar
+// uno inserta el texto de input_message_content como si el usuario lo hubiera escrito
+// y mandado — por eso el mensaje "Cliente: <nombre>" se intercepta más abajo.
+const PREFIJO_CLIENTE_INLINE = 'Cliente: ';
+
+bot.on('inline_query', async (query) => {
+  if (!autorizado(query.from.id)) {
+    try { await bot.answerInlineQuery(query.id, [], { cache_time: 30 }); } catch (e) {}
+    return;
+  }
+
+  try {
+    const texto = (query.query || '').trim();
+    if (!texto) {
+      await bot.answerInlineQuery(query.id, [], { cache_time: 5 });
+      return;
+    }
+
+    const clientes = await obtenerClientesCacheados();
+    const resultados = filtrarClientes(texto, clientes).slice(0, 20).map((c, i) => ({
+      type: 'article',
+      id: String(i),
+      title: c.nombre,
+      description: c.direccion || '',
+      input_message_content: { message_text: PREFIJO_CLIENTE_INLINE + c.nombre }
+    }));
+    await bot.answerInlineQuery(query.id, resultados, { cache_time: 5 });
+  } catch (err) {
+    console.error('Error en inline_query:', err.message);
+    try { await bot.answerInlineQuery(query.id, [], { cache_time: 0 }); } catch (e) {}
+  }
+});
+
 // --- Mensajes de texto ---
 
 bot.on('message', async (msg) => {
@@ -465,6 +513,36 @@ bot.on('message', async (msg) => {
 
   if (!autorizado(chatId)) {
     console.log(`Mensaje ignorado de chat no autorizado: ${chatId}`);
+    return;
+  }
+
+  if (texto.startsWith(PREFIJO_CLIENTE_INLINE)) {
+    const nombreElegido = texto.slice(PREFIJO_CLIENTE_INLINE.length).trim();
+    try {
+      const clientes = await obtenerClientesCacheados();
+      const sesionActual = sesiones.get(chatId) || {};
+      sesionActual.modo = 'mayorista';
+      sesionActual.clientes = clientes;
+      sesionActual.pagina = 0;
+      sesionActual.esperando = 'buscar-cliente';
+      sesiones.set(chatId, sesionActual);
+
+      const exactos = clientes.filter(c => normalizar(c.nombre) === normalizar(nombreElegido));
+      if (exactos.length === 1) {
+        seleccionarClienteGuardado(sesionActual, exactos[0]);
+        pedirPedido(chatId, sesionActual);
+      } else {
+        const matches = filtrarClientes(nombreElegido, clientes);
+        if (matches.length === 0) {
+          bot.sendMessage(chatId, `No encontré a "${nombreElegido}" en la lista — puede haber cambiado. Probá buscar de nuevo.`);
+        } else {
+          mostrarResultadosBusqueda(chatId, sesionActual, nombreElegido, matches);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      bot.sendMessage(chatId, 'Ocurrió un error buscando el cliente: ' + err.message);
+    }
     return;
   }
 

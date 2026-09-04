@@ -19,7 +19,10 @@ y cantidades), un renglón por línea:
 
 - **Mayorista:** elegís el cliente de la lista guardada (usa sus 3 descuentos en
   cadena) o "Cliente ocasional" (sin descuento, salvo que elijas uno de los botones o
-  escribas uno propio tipo `10+5`).
+  escribas uno propio tipo `10+5`). Para buscarlo se puede escribir parte del nombre
+  cuando el bot lo pide, o usar el modo inline: escribir `@nombredelbot fen` en el chat
+  (con arroba) tira sugerencias en vivo, tipo buscador, arriba del teclado — hay que
+  activarlo una vez con `/setinline` en @BotFather.
 - **Minorista:** escribís el nombre, tocás teléfono (opcional), el tipo de descuento
   (ninguno / % / monto fijo en $) y el sello del PDF (Pagado / A pagar / ninguno). Usa
   la lista de precios minorista del catálogo.
