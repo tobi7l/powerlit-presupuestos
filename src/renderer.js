@@ -457,10 +457,11 @@ async function generarPDF() {
   let powerlitPayload = null;
   if (pedidoPowerlitActual) {
     const { filas, subtotal, total } = calcularResumen();
-    const factor = subtotal > 0 ? total / subtotal : 1;
+    const ivaPct = Number(document.getElementById('iva-powerlit').value) || 0;
+    const factor = (subtotal > 0 ? total / subtotal : 1) * (1 + ivaPct / 100);
     powerlitPayload = {
       saleId: pedidoPowerlitActual.saleId,
-      total,
+      total: Math.round(total * (1 + ivaPct / 100) * 100) / 100,
       lineas: filas
         .filter((f) => f.producto.powerlitId)
         .map((f) => ({
@@ -479,7 +480,9 @@ async function generarPDF() {
       status.textContent = `Guardado en: ${res.fullPath}. ${res.powerlit.error}`;
       status.className = 'save-status error';
     } else if (powerlitPayload && res.powerlit && res.powerlit.ok) {
-      status.textContent = `Guardado en: ${res.fullPath}. Precio y boleta enviados a Powerlit.`;
+      const ivaPct = Number(document.getElementById('iva-powerlit').value) || 0;
+      const notaIva = ivaPct > 0 ? ` (con ${ivaPct}% de IVA sumado en Powerlit)` : '';
+      status.textContent = `Guardado en: ${res.fullPath}. Precio y boleta enviados a Powerlit${notaIva}.`;
       status.className = 'save-status';
     } else {
       status.textContent = `Guardado en: ${res.fullPath}`;
@@ -635,6 +638,9 @@ async function limpiarTodo() {
   ultimoPdfGenerado = null;
   pedidoPowerlitActual = null;
   document.getElementById('banner-pedido-powerlit').hidden = true;
+  document.getElementById('iva-powerlit').value = '';
+  document.getElementById('fila-iva-powerlit').hidden = true;
+  document.getElementById('hint-iva-powerlit').hidden = true;
 }
 
 // --- Pedido cargado desde Powerlit (botón "Cargar boleta" en la web de gestión) ---
@@ -684,6 +690,9 @@ async function cargarPedidoDesdePowerlit(saleId) {
 
   pedidoPowerlitActual = { saleId };
   document.getElementById('banner-pedido-powerlit').hidden = false;
+  document.getElementById('iva-powerlit').value = '';
+  document.getElementById('fila-iva-powerlit').hidden = false;
+  document.getElementById('hint-iva-powerlit').hidden = false;
   document.getElementById('post-generar-acciones').hidden = true;
   ultimoPdfGenerado = null;
 

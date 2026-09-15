@@ -143,6 +143,10 @@
         <div class="ticket-divider"></div>
         <div class="ticket-row total"><span>TOTAL</span><span id="out-total">$ 0,00</span></div>
       </div>
+      <label id="fila-iva-powerlit" class="field-narrow" hidden>IVA a sumar en Powerlit (opcional)
+        <input id="iva-powerlit" type="number" min="0" step="0.1" placeholder="Ej: 21" />
+      </label>
+      <p id="hint-iva-powerlit" class="modal-hint" hidden>No cambia el PDF — solo se suma al precio que queda registrado en Powerlit.</p>
       <button id="btn-generar" class="primary-btn full">Generar y guardar PDF</button>
       <p id="save-status" class="save-status"></p>
       <div id="post-generar-acciones" class="post-generar-acciones" hidden>
