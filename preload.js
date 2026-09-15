@@ -16,5 +16,5 @@ contextBridge.exposeInMainWorld('powerlit', {
   powerlitLogin: (creds) => ipcRenderer.invoke('powerlit-login', creds),
   powerlitLogout: () => ipcRenderer.invoke('powerlit-logout'),
   powerlitFetchPedido: (saleId) => ipcRenderer.invoke('powerlit-fetch-pedido', saleId),
-  onPedidoPowerlit: (callback) => ipcRenderer.on('cargar-pedido-powerlit', (event, saleId) => callback(saleId))
+  onPedidoPowerlit: (callback) => ipcRenderer.on('cargar-pedido-powerlit', (event, pedido) => callback(pedido))
 });

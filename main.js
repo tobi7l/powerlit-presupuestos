@@ -128,7 +128,7 @@ function carpetaConAnioMes(basePath, fechaISO) {
 let mainWindow;
 // saleId recibido por el protocolo powerlit-boleta:// antes de que la ventana termine de
 // cargar (pasa al abrir la app desde cero) — se manda al renderer apenas esté lista.
-let pedidoPendienteAlAbrir = null;
+let pedidoPendienteAlAbrir = null; // { saleId, iva }
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -175,10 +175,12 @@ function manejarUrlProtocolo(url) {
   }
   const saleId = parsed.searchParams.get('saleId');
   if (!saleId) return;
+  const iva = Number(parsed.searchParams.get('iva')) || 0;
+  const pedido = { saleId, iva };
   if (mainWindow && !mainWindow.webContents.isLoadingMainFrame()) {
-    mainWindow.webContents.send('cargar-pedido-powerlit', saleId);
+    mainWindow.webContents.send('cargar-pedido-powerlit', pedido);
   } else {
-    pedidoPendienteAlAbrir = saleId;
+    pedidoPendienteAlAbrir = pedido;
   }
 }
 

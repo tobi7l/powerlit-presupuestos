@@ -645,7 +645,7 @@ async function limpiarTodo() {
 
 // --- Pedido cargado desde Powerlit (botón "Cargar boleta" en la web de gestión) ---
 
-async function cargarPedidoDesdePowerlit(saleId) {
+async function cargarPedidoDesdePowerlit({ saleId, iva: ivaInicial }) {
   const status = document.getElementById('save-status');
   status.textContent = 'Cargando pedido de Powerlit…';
   status.className = 'save-status';
@@ -690,7 +690,7 @@ async function cargarPedidoDesdePowerlit(saleId) {
 
   pedidoPowerlitActual = { saleId };
   document.getElementById('banner-pedido-powerlit').hidden = false;
-  document.getElementById('iva-powerlit').value = '';
+  document.getElementById('iva-powerlit').value = ivaInicial || '';
   document.getElementById('fila-iva-powerlit').hidden = false;
   document.getElementById('hint-iva-powerlit').hidden = false;
   document.getElementById('post-generar-acciones').hidden = true;
