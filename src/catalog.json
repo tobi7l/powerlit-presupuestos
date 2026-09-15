@@ -21,7 +21,7 @@
   {"categoria":"Tanques","subcategoria":"cuatricapa","capacidad":"1000 lts","precio":214000,"precioMinorista":235500,"powerlitId":"be922643-8851-43a5-8087-f1878ef2fdde"},
   {"categoria":"Tanques","subcategoria":"cuatricapa","capacidad":"1000 lts patagónico","precio":236000,"precioMinorista":259500,"powerlitId":"11281916-7a56-4451-a455-b187517eecdb"},
   {"categoria":"Tanques","subcategoria":"cuatricapa","capacidad":"3000 lts","precio":597000,"precioMinorista":656500,"powerlitId":"5b9aea95-9ca5-4e3e-b5ab-b715462af13f"},
-  {"categoria":"Biodigestores","subcategoria":"","capacidad":"500 lts","precio":224500,"precioMinorista":247000},
+  {"categoria":"Biodigestores","subcategoria":"","capacidad":"470 lts","precio":224500,"precioMinorista":247000,"powerlitId":"08b2d51f-d565-40ef-b4b8-f5b81a2a00ab"},
   {"categoria":"Biodigestores","subcategoria":"","capacidad":"750 lts","precio":264000,"precioMinorista":290500,"powerlitId":"683982e8-bb76-483c-ab43-f7ff774268d4"},
   {"categoria":"Biodigestores","subcategoria":"","capacidad":"1000 lts","precio":289500,"precioMinorista":318500,"powerlitId":"971c19ec-8a29-409f-a281-0187379a23cd"},
   {"categoria":"Biodigestores","subcategoria":"","capacidad":"3000 lts","precio":764500,"precioMinorista":841000,"powerlitId":"92584a0f-8ab6-4b56-b02b-0655725de794"},
