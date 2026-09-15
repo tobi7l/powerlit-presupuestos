@@ -56,7 +56,9 @@
     }
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "electron-updater": "^6.8.9",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "ws": "^8.21.3"
   }
 }

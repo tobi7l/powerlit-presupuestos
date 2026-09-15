@@ -11,5 +11,10 @@ contextBridge.exposeInMainWorld('powerlit', {
   guardarCliente: (cliente) => ipcRenderer.invoke('guardar-cliente', cliente),
   eliminarCliente: (id) => ipcRenderer.invoke('eliminar-cliente', id),
   confirmar: (mensaje) => ipcRenderer.invoke('confirmar', mensaje),
-  buscarActualizaciones: () => ipcRenderer.invoke('buscar-actualizaciones')
+  buscarActualizaciones: () => ipcRenderer.invoke('buscar-actualizaciones'),
+  powerlitLoginEstado: () => ipcRenderer.invoke('powerlit-login-estado'),
+  powerlitLogin: (creds) => ipcRenderer.invoke('powerlit-login', creds),
+  powerlitLogout: () => ipcRenderer.invoke('powerlit-logout'),
+  powerlitFetchPedido: (saleId) => ipcRenderer.invoke('powerlit-fetch-pedido', saleId),
+  onPedidoPowerlit: (callback) => ipcRenderer.on('cargar-pedido-powerlit', (event, saleId) => callback(saleId))
 });

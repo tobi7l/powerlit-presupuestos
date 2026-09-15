@@ -6,6 +6,7 @@ let dropdownAbierto = null; // referencia al <div class="detalle-dropdown"> abie
 let ultimoPdfGenerado = null; // ruta del último PDF generado, para el botón "Mostrar PDF"
 let modoMinorista = false; // false = precios mayoristas (por defecto al abrir la app)
 let estadoPago = null; // null | 'pagado' | 'a-pagar' — leyenda del PDF, solo en minorista
+let pedidoPowerlitActual = null; // { saleId } cuando este presupuesto viene de un pedido de Powerlit
 
 function precioDe(producto) {
   return modoMinorista ? producto.precioMinorista : producto.precio;
@@ -356,10 +357,17 @@ function alCambiarDescuentoMonto() {
   }
 }
 
-function recalcTotals() {
+// Junta cantidades, subtotal y total con descuento ya aplicado — lo usan por igual el resumen
+// en pantalla, el PDF y el envío del precio a Powerlit, para que los tres coincidan siempre.
+function calcularResumen() {
   const filas = filasValidas();
   const subtotal = filas.reduce((acc, f) => acc + f.cant * precioDe(f.producto), 0);
   const { total, descMonto, etiqueta } = calcularDescuento(subtotal);
+  return { filas, subtotal, total, descMonto, etiqueta };
+}
+
+function recalcTotals() {
+  const { subtotal, total, descMonto, etiqueta } = calcularResumen();
 
   document.getElementById('out-subtotal').textContent = fmtMoney(subtotal);
   document.getElementById('out-desc-pct').textContent = etiqueta;
@@ -374,9 +382,7 @@ function buildTicketHTML() {
   const fechaVal = document.getElementById('fecha').value;
   const fecha = fechaVal ? new Date(fechaVal + 'T00:00:00').toLocaleDateString('es-AR') : new Date().toLocaleDateString('es-AR');
 
-  const filas = filasValidas();
-  const subtotal = filas.reduce((acc, f) => acc + f.cant * precioDe(f.producto), 0);
-  const { total, descMonto, etiqueta } = calcularDescuento(subtotal);
+  const { filas, subtotal, total, descMonto, etiqueta } = calcularResumen();
 
   // Leyenda tipo sello (solo minorista, y solo si se eligió una): negra, transparente,
   // en diagonal sobre el presupuesto — igual de estilo al watermark de las libretas
@@ -425,17 +431,47 @@ async function generarPDF() {
   const fechaVal = document.getElementById('fecha').value || new Date().toISOString().slice(0, 10);
   const filename = nombreArchivo(cliente, fechaVal);
 
-  status.textContent = 'Generando PDF…';
+  status.textContent = pedidoPowerlitActual ? 'Generando PDF y enviando el precio a Powerlit…' : 'Generando PDF…';
   status.className = 'save-status';
 
   const html = buildTicketHTML();
-  const res = await window.powerlit.generarPDF({ html, filename, fecha: fechaVal });
+
+  // Si este presupuesto viene de un pedido de Powerlit, se manda junto con el PDF el precio
+  // final por línea (ya con el descuento aplicado, repartido en la misma proporción que el
+  // catálogo) para que quede cargado allá sin tipearlo de nuevo. Las líneas que no se pudieron
+  // relacionar a un producto de Powerlit (agregadas a mano acá) no se envían — no hay a qué
+  // línea del pedido asignarlas.
+  let powerlitPayload = null;
+  if (pedidoPowerlitActual) {
+    const { filas, subtotal, total } = calcularResumen();
+    const factor = subtotal > 0 ? total / subtotal : 1;
+    powerlitPayload = {
+      saleId: pedidoPowerlitActual.saleId,
+      total,
+      lineas: filas
+        .filter((f) => f.producto.powerlitId)
+        .map((f) => ({
+          productId: f.producto.powerlitId,
+          precioUnitario: Math.round(precioDe(f.producto) * factor * 100) / 100
+        }))
+    };
+  }
+
+  const res = await window.powerlit.generarPDF({ html, filename, fecha: fechaVal, powerlit: powerlitPayload });
 
   if (res.ok) {
-    status.textContent = `Guardado en: ${res.fullPath}`;
-    status.className = 'save-status';
     ultimoPdfGenerado = res.fullPath;
     acciones.hidden = false;
+    if (powerlitPayload && res.powerlit && !res.powerlit.ok) {
+      status.textContent = `Guardado en: ${res.fullPath}. ${res.powerlit.error}`;
+      status.className = 'save-status error';
+    } else if (powerlitPayload && res.powerlit && res.powerlit.ok) {
+      status.textContent = `Guardado en: ${res.fullPath}. Precio y boleta enviados a Powerlit.`;
+      status.className = 'save-status';
+    } else {
+      status.textContent = `Guardado en: ${res.fullPath}`;
+      status.className = 'save-status';
+    }
   } else {
     status.textContent = 'Error al guardar: ' + res.error;
     status.className = 'save-status error';
@@ -584,6 +620,112 @@ async function limpiarTodo() {
   status.className = 'save-status';
   document.getElementById('post-generar-acciones').hidden = true;
   ultimoPdfGenerado = null;
+  pedidoPowerlitActual = null;
+  document.getElementById('banner-pedido-powerlit').hidden = true;
+}
+
+// --- Pedido cargado desde Powerlit (botón "Cargar boleta" en la web de gestión) ---
+
+async function cargarPedidoDesdePowerlit(saleId) {
+  const status = document.getElementById('save-status');
+  status.textContent = 'Cargando pedido de Powerlit…';
+  status.className = 'save-status';
+
+  const res = await window.powerlit.powerlitFetchPedido(saleId);
+  if (!res.ok) {
+    status.textContent = res.error;
+    status.className = 'save-status error';
+    return;
+  }
+
+  if (res.yaTenePrecio) {
+    const seguir = await window.powerlit.confirmar(
+      'Ese pedido de Powerlit ya tiene un precio asignado. ¿Generar otra boleta y reemplazarlo?'
+    );
+    if (!seguir) return;
+  }
+
+  document.getElementById('items-body').innerHTML = '';
+  document.getElementById('cliente').value = res.cliente;
+  delete document.getElementById('cliente').dataset.clienteId;
+  document.getElementById('direccion').value = '';
+  document.querySelectorAll('.in-descuento').forEach((sel) => { sel.value = '0'; sel.disabled = false; });
+  document.getElementById('descuento-minorista-monto').value = '';
+  document.getElementById('descuento-minorista-monto').disabled = false;
+  document.getElementById('fecha').value = res.fecha;
+  elegirEstadoPago(null);
+
+  // Si ya hay guardado en esta PC un cliente con el mismo nombre, se usa para traer dirección
+  // y descuentos habituales sin tener que volver a tipearlos.
+  const existente = CLIENTES.find((c) => normalizar(c.nombre) === normalizar(res.cliente));
+  if (existente) seleccionarCliente(existente.id);
+
+  const sinMapear = [];
+  res.lineas.forEach((linea) => {
+    if (linea.idx === null) {
+      sinMapear.push(linea);
+      return;
+    }
+    agregarFilaImportada(linea.idx, linea.cantidad, false);
+  });
+  if (document.querySelectorAll('#items-body tr').length === 0) addRow();
+  recalcTotals();
+
+  pedidoPowerlitActual = { saleId };
+  document.getElementById('banner-pedido-powerlit').hidden = false;
+  document.getElementById('post-generar-acciones').hidden = true;
+  ultimoPdfGenerado = null;
+
+  const partes = [`Pedido de Powerlit cargado. Al generar el PDF, el precio se envía solo.`];
+  if (sinMapear.length) {
+    partes.push(`No se pudo relacionar con el catálogo: ${sinMapear.map((l) => l.nombrePowerlit).join(', ')} — agregalo a mano con el buscador (esa línea no va a enviar precio).`);
+  }
+  status.textContent = partes.join(' ');
+  status.className = sinMapear.length ? 'save-status error' : 'save-status';
+}
+
+// --- Vínculo con Powerlit (usuario/contraseña de la web de gestión) ---
+
+async function actualizarEstadoVinculoPowerlit() {
+  const badge = document.getElementById('powerlit-badge');
+  const estado = await window.powerlit.powerlitLoginEstado();
+  if (estado.vinculado) {
+    badge.textContent = '🔗 Vinculado con Powerlit (' + estado.email + ')';
+    badge.className = 'drive-badge si';
+  } else {
+    badge.textContent = '⚠ Sin vincular con Powerlit';
+    badge.className = 'drive-badge no';
+  }
+  return estado;
+}
+
+function abrirModalPowerlit() {
+  document.getElementById('powerlit-email').value = '';
+  document.getElementById('powerlit-password').value = '';
+  document.getElementById('powerlit-login-error').textContent = '';
+  document.getElementById('modal-powerlit').hidden = false;
+}
+
+function cerrarModalPowerlit() {
+  document.getElementById('modal-powerlit').hidden = true;
+}
+
+async function iniciarSesionPowerlit() {
+  const email = document.getElementById('powerlit-email').value.trim();
+  const password = document.getElementById('powerlit-password').value;
+  const errorEl = document.getElementById('powerlit-login-error');
+  if (!email || !password) {
+    errorEl.textContent = 'Completá el usuario y la contraseña de Powerlit.';
+    return;
+  }
+  errorEl.textContent = 'Conectando…';
+  const res = await window.powerlit.powerlitLogin({ email, password });
+  if (!res.ok) {
+    errorEl.textContent = res.error;
+    return;
+  }
+  await actualizarEstadoVinculoPowerlit();
+  cerrarModalPowerlit();
 }
 
 function blobToDataURL(blob) {
@@ -663,6 +805,21 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-modo-minorista').addEventListener('click', toggleModoMinorista);
   document.getElementById('btn-estado-pagado').addEventListener('click', () => elegirEstadoPago('pagado'));
   document.getElementById('btn-estado-a-pagar').addEventListener('click', () => elegirEstadoPago('a-pagar'));
+
+  document.getElementById('powerlit-badge').addEventListener('click', abrirModalPowerlit);
+  document.getElementById('btn-powerlit-cerrar').addEventListener('click', cerrarModalPowerlit);
+  document.getElementById('btn-powerlit-conectar').addEventListener('click', iniciarSesionPowerlit);
+  document.getElementById('btn-powerlit-desvincular').addEventListener('click', async () => {
+    if (!await window.powerlit.confirmar('¿Desvincular esta PC de Powerlit? Vas a tener que volver a iniciar sesión para cargar boletas desde ahí.')) return;
+    await window.powerlit.powerlitLogout();
+    await actualizarEstadoVinculoPowerlit();
+    cerrarModalPowerlit();
+  });
+  document.getElementById('modal-powerlit').addEventListener('mousedown', (e) => {
+    if (e.target.id === 'modal-powerlit') cerrarModalPowerlit();
+  });
+  window.powerlit.onPedidoPowerlit(cargarPedidoDesdePowerlit);
+  actualizarEstadoVinculoPowerlit();
 
   addRow();
   initSettings();
