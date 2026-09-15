@@ -7,7 +7,6 @@ const { autoUpdater } = require('electron-updater');
 const { createClient } = require('@supabase/supabase-js');
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
-const CLIENTES_PATH_LOCAL = path.join(app.getPath('userData'), 'clientes.json');
 const POWERLIT_AUTH_PATH = path.join(app.getPath('userData'), 'powerlit-auth.json');
 
 // --- Vínculo con Powerlit (misma base de Supabase que la web de gestión) ---
@@ -76,46 +75,6 @@ function loadSettings() {
 
 function saveSettings(settings) {
   fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
-}
-
-// Si hay Google Drive sincronizado en esta PC, la lista de clientes vive ahí (así se
-// comparte sola entre cualquier PC donde se instale la app con la misma cuenta). Si no
-// hay Drive, queda solo en esta PC.
-function clientesFilePath() {
-  const driveFolder = guessDriveFolder();
-  return driveFolder
-    ? path.join(driveFolder, 'Powerlit App', 'clientes.json')
-    : CLIENTES_PATH_LOCAL;
-}
-
-function loadClientes() {
-  const filePath = clientesFilePath();
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  } catch {
-    // Si ahora usamos Drive pero todavía no hay archivo ahí, y esta PC tenía clientes
-    // guardados localmente de antes (de cuando no había Drive detectado), los migramos
-    // una sola vez para no perderlos.
-    if (filePath !== CLIENTES_PATH_LOCAL) {
-      try {
-        const locales = JSON.parse(fs.readFileSync(CLIENTES_PATH_LOCAL, 'utf-8'));
-        if (Array.isArray(locales) && locales.length > 0) {
-          saveClientesEn(filePath, locales);
-          return locales;
-        }
-      } catch { /* no había nada local tampoco */ }
-    }
-    return [];
-  }
-}
-
-function saveClientesEn(filePath, clientes) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(clientes, null, 2), 'utf-8');
-}
-
-function saveClientes(clientes) {
-  saveClientesEn(clientesFilePath(), clientes);
 }
 
 // Intenta adivinar dónde está la carpeta de Google Drive sincronizada en esta PC,
@@ -324,7 +283,6 @@ ipcMain.handle('get-settings', () => {
     settings.savePath = defaultSaveFolder();
   }
   settings.driveDetectado = guessDriveFolder() !== null;
-  settings.clientesEnDrive = settings.driveDetectado; // los clientes se guardan en Drive cuando hay Drive detectado
   settings.version = app.getVersion();
   return settings;
 });
@@ -457,7 +415,8 @@ ipcMain.handle('powerlit-fetch-pedido', async (event, saleId) => {
       .from('sales').select('id,date,customer_id,priced_at').eq('id', saleId).single();
     if (saleErr || !sale) return { ok: false, error: 'No se encontró ese pedido en Powerlit.' };
 
-    const { data: customer } = await supabase.from('customers').select('name').eq('id', sale.customer_id).single();
+    const { data: customer } = await supabase
+      .from('customers').select('name,address,discount_1,discount_2,discount_3').eq('id', sale.customer_id).single();
 
     const { data: items, error: itemsErr } = await supabase
       .from('sale_items').select('product_id,quantity').eq('sale_id', saleId);
@@ -488,7 +447,12 @@ ipcMain.handle('powerlit-fetch-pedido', async (event, saleId) => {
     return {
       ok: true,
       saleId,
+      clienteId: sale.customer_id,
       cliente: customer && customer.name ? customer.name : '',
+      direccion: customer && customer.address ? customer.address : '',
+      descuento1: customer ? String(customer.discount_1 ?? 0) : '0',
+      descuento2: customer ? String(customer.discount_2 ?? 0) : '0',
+      descuento3: customer ? String(customer.discount_3 ?? 0) : '0',
       fecha: sale.date,
       yaTenePrecio: !!sale.priced_at,
       lineas
@@ -518,38 +482,90 @@ ipcMain.handle('confirmar', async (event, mensaje) => {
 
 ipcMain.handle('leer-portapapeles', () => clipboard.readText());
 
-// --- IPC: lista de clientes (nombre, dirección, descuentos habituales) ---
-ipcMain.handle('listar-clientes', () => loadClientes());
-
-ipcMain.handle('guardar-cliente', (event, cliente) => {
-  const clientes = loadClientes();
-  const nombreNorm = (cliente.nombre || '').trim().toLowerCase();
-  if (!nombreNorm) return loadClientes();
-
-  const idx = cliente.id
-    ? clientes.findIndex(c => c.id === cliente.id)
-    : clientes.findIndex(c => c.nombre.trim().toLowerCase() === nombreNorm);
-
-  const registro = {
-    id: cliente.id || (idx >= 0 ? clientes[idx].id : String(Date.now())),
-    nombre: cliente.nombre.trim(),
-    direccion: (cliente.direccion || '').trim(),
-    descuento1: cliente.descuento1 || '0',
-    descuento2: cliente.descuento2 || '0',
-    descuento3: cliente.descuento3 || '0'
+// --- IPC: lista de clientes — vive en Powerlit (tabla customers), no local ni en Drive.
+// Nombre/dirección/descuentos son la misma ficha que se ve y edita desde la web de gestión.
+function filaClientePowerlit(row) {
+  return {
+    id: row.id,
+    nombre: row.name,
+    direccion: row.address || '',
+    descuento1: String(row.discount_1 ?? 0),
+    descuento2: String(row.discount_2 ?? 0),
+    descuento3: String(row.discount_3 ?? 0)
   };
+}
 
-  if (idx >= 0) clientes[idx] = registro;
-  else clientes.push(registro);
+async function listarClientesPowerlit() {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id,name,address,discount_1,discount_2,discount_3')
+    .order('name');
+  if (error) throw new Error(error.message);
+  return (data || []).map(filaClientePowerlit);
+}
 
-  saveClientes(clientes);
-  return clientes;
+ipcMain.handle('listar-clientes', async () => {
+  const sesionOk = await asegurarSesionPowerlit();
+  if (!sesionOk) return { ok: false, error: 'Vinculate con Powerlit para ver los clientes guardados.', clientes: [] };
+  try {
+    return { ok: true, clientes: await listarClientesPowerlit() };
+  } catch (err) {
+    return { ok: false, error: 'No se pudo conectar con Powerlit: ' + err.message, clientes: [] };
+  }
 });
 
-ipcMain.handle('eliminar-cliente', (event, id) => {
-  const clientes = loadClientes().filter(c => c.id !== id);
-  saveClientes(clientes);
-  return clientes;
+ipcMain.handle('guardar-cliente', async (event, cliente) => {
+  const sesionOk = await asegurarSesionPowerlit();
+  if (!sesionOk) return { ok: false, error: 'Vinculate con Powerlit para guardar clientes.' };
+
+  const nombre = (cliente.nombre || '').trim();
+  if (!nombre) return { ok: false, error: 'Falta el nombre del cliente.' };
+
+  const payload = {
+    name: nombre,
+    address: (cliente.direccion || '').trim() || null,
+    discount_1: Number(cliente.descuento1) || 0,
+    discount_2: Number(cliente.descuento2) || 0,
+    discount_3: Number(cliente.descuento3) || 0
+  };
+
+  try {
+    if (cliente.id) {
+      const { error } = await supabase.from('customers').update(payload).eq('id', cliente.id);
+      if (error) return { ok: false, error: error.message };
+    } else {
+      // Igual que antes: si ya existe un cliente con ese nombre, se actualiza en vez de duplicarlo.
+      const { data: existente } = await supabase
+        .from('customers').select('id').ilike('name', nombre).maybeSingle();
+      if (existente) {
+        const { error } = await supabase.from('customers').update(payload).eq('id', existente.id);
+        if (error) return { ok: false, error: error.message };
+      } else {
+        const { error } = await supabase.from('customers').insert(payload);
+        if (error) return { ok: false, error: error.message };
+      }
+    }
+    return { ok: true, clientes: await listarClientesPowerlit() };
+  } catch (err) {
+    return { ok: false, error: 'No se pudo conectar con Powerlit: ' + err.message };
+  }
+});
+
+ipcMain.handle('eliminar-cliente', async (event, id) => {
+  const sesionOk = await asegurarSesionPowerlit();
+  if (!sesionOk) return { ok: false, error: 'Vinculate con Powerlit para eliminar clientes.' };
+  try {
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (error) {
+      if (error.code === '23503') {
+        return { ok: false, error: 'Ese cliente ya tiene pedidos o cobros cargados en Powerlit — no se puede eliminar (evita perder ese historial). Si es un duplicado, fusionalo desde la web en vez de borrarlo acá.' };
+      }
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, clientes: await listarClientesPowerlit() };
+  } catch (err) {
+    return { ok: false, error: 'No se pudo conectar con Powerlit: ' + err.message };
+  }
 });
 
 // --- IPC: elegir un PDF de pedido y extraer su texto (todo local, sin internet) ---

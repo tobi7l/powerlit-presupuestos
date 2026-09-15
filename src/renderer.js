@@ -192,7 +192,9 @@ async function guardarClienteActual() {
   const nombre = clienteInput.value.trim();
   if (!nombre) { clienteInput.focus(); return; }
 
-  CLIENTES = await window.powerlit.guardarCliente({
+  const btn = document.getElementById('btn-guardar-cliente');
+  const status = document.getElementById('save-status');
+  const res = await window.powerlit.guardarCliente({
     id: clienteInput.dataset.clienteId,
     nombre,
     direccion: document.getElementById('direccion').value.trim(),
@@ -201,10 +203,16 @@ async function guardarClienteActual() {
     descuento3: document.getElementById('descuento3').value
   });
 
+  if (!res.ok) {
+    status.textContent = res.error;
+    status.className = 'save-status error';
+    return;
+  }
+
+  CLIENTES = res.clientes;
   const guardado = CLIENTES.find(c => normalizar(c.nombre) === normalizar(nombre));
   if (guardado) clienteInput.dataset.clienteId = guardado.id;
 
-  const btn = document.getElementById('btn-guardar-cliente');
   const textoOriginal = btn.textContent;
   btn.textContent = '✔ Guardado';
   setTimeout(() => { btn.textContent = textoOriginal; }, 1500);
@@ -217,8 +225,12 @@ function etiquetaDescuentosCliente(c) {
   return descs.length ? descs.map(d => d + '%').join(' + ') : 'sin descuento';
 }
 
-function renderListaClientes() {
+function renderListaClientes(errorMsg) {
   const cont = document.getElementById('clientes-lista');
+  if (errorMsg) {
+    cont.innerHTML = `<div class="clientes-vacio">${errorMsg}</div>`;
+    return;
+  }
   if (CLIENTES.length === 0) {
     cont.innerHTML = '<div class="clientes-vacio">Todavía no guardaste ningún cliente. Cargá uno en el formulario y tocá "💾 Guardar cliente".</div>';
     return;
@@ -238,8 +250,9 @@ function renderListaClientes() {
 }
 
 async function abrirModalClientes() {
-  CLIENTES = await window.powerlit.listarClientes();
-  renderListaClientes();
+  const res = await window.powerlit.listarClientes();
+  if (res.ok) CLIENTES = res.clientes;
+  renderListaClientes(res.ok ? null : res.error);
   document.getElementById('modal-clientes').hidden = false;
 }
 
@@ -647,18 +660,16 @@ async function cargarPedidoDesdePowerlit(saleId) {
 
   document.getElementById('items-body').innerHTML = '';
   document.getElementById('cliente').value = res.cliente;
-  delete document.getElementById('cliente').dataset.clienteId;
-  document.getElementById('direccion').value = '';
-  document.querySelectorAll('.in-descuento').forEach((sel) => { sel.value = '0'; sel.disabled = false; });
+  document.getElementById('cliente').dataset.clienteId = res.clienteId;
+  document.getElementById('direccion').value = res.direccion || '';
+  document.getElementById('descuento1').value = res.descuento1 || '0';
+  document.getElementById('descuento2').value = res.descuento2 || '0';
+  document.getElementById('descuento3').value = res.descuento3 || '0';
+  document.querySelectorAll('.in-descuento').forEach((sel) => { sel.disabled = false; });
   document.getElementById('descuento-minorista-monto').value = '';
   document.getElementById('descuento-minorista-monto').disabled = false;
   document.getElementById('fecha').value = res.fecha;
   elegirEstadoPago(null);
-
-  // Si ya hay guardado en esta PC un cliente con el mismo nombre, se usa para traer dirección
-  // y descuentos habituales sin tener que volver a tipearlos.
-  const existente = CLIENTES.find((c) => normalizar(c.nombre) === normalizar(res.cliente));
-  if (existente) seleccionarCliente(existente.id);
 
   const sinMapear = [];
   res.lineas.forEach((linea) => {
@@ -743,7 +754,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   ]);
   CATALOG = await catalogRes.json();
   LOGO_DATA_URL = await blobToDataURL(await logoRes.blob());
-  CLIENTES = clientesIniciales;
+  CLIENTES = clientesIniciales.ok ? clientesIniciales.clientes : [];
 
   document.getElementById('fecha').value = new Date().toISOString().slice(0, 10);
   document.getElementById('btn-add-row').addEventListener('click', addRow);
@@ -793,8 +804,15 @@ window.addEventListener('DOMContentLoaded', async () => {
       seleccionarCliente(id);
       cerrarModalClientes();
     } else if (e.target.classList.contains('btn-cliente-borrar')) {
-      if (!await window.powerlit.confirmar(`¿Eliminar a "${c.nombre}" de la lista de clientes?`)) return;
-      CLIENTES = await window.powerlit.eliminarCliente(id);
+      if (!await window.powerlit.confirmar(`¿Eliminar a "${c.nombre}" de la lista de clientes? Esto lo borra de Powerlit.`)) return;
+      const res = await window.powerlit.eliminarCliente(id);
+      if (!res.ok) {
+        const status = document.getElementById('save-status');
+        status.textContent = res.error;
+        status.className = 'save-status error';
+        return;
+      }
+      CLIENTES = res.clientes;
       renderListaClientes();
     }
   });
